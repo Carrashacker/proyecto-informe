@@ -950,6 +950,57 @@ app.post("/api/report-generate", (req, res) => {
   }
 });
 
+app.get("/api/export", (req, res) => {
+  const exportData = {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    tables: {}
+  };
+  const tables = [
+    "users", "maintenance_templates", "maintenance_records", "activity_records",
+    "thermography_records", "report_weeks", "plan_status_records", "aforo_records", "equation_offset_records"
+  ];
+  tables.forEach(table => {
+    exportData.tables[table] = db.prepare(`SELECT * FROM ${table}`).all();
+  });
+  res.json(exportData);
+});
+
+app.post("/api/import", (req, res) => {
+  const data = req.body;
+  if (!data || !data.tables) return res.status(400).json({ error: "Datos invalidos." });
+  
+  const importData = db.transaction(() => {
+    const tableOrder = ["users", "maintenance_templates", "maintenance_records", "activity_records",
+      "thermography_records", "report_weeks", "plan_status_records", "aforo_records", "equation_offset_records"];
+    
+    tableOrder.forEach(table => {
+      db.exec(`DELETE FROM ${table}`);
+      const rows = data.tables[table];
+      if (Array.isArray(rows) && rows.length > 0) {
+        const columns = Object.keys(rows[0]);
+        const placeholders = columns.map(() => "?").join(", ");
+        const insert = db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`);
+        rows.forEach(row => {
+          const values = columns.map(col => {
+            const val = row[col];
+            if (typeof val === "object" && val !== null) return JSON.stringify(val);
+            return val;
+          });
+          insert.run(...values);
+        });
+      }
+    });
+  });
+  
+  try {
+    importData();
+    res.json({ success: true, message: "Datos importados correctamente." });
+  } catch (e) {
+    res.status(500).json({ error: "Error al importar: " + e.message });
+  }
+});
+
 app.get("/api/thermography/download/:file", (req, res) => {
   const file = path.basename(req.params.file);
   const allowed = ["Control de temperaturas bombas colectivas.xlsx", "Control de temperatura bombas selectiva.xlsx"];
