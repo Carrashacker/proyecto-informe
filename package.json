@@ -1,0 +1,16 @@
+{
+  "name": "informes-metso",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema local para informes semanales de mantencion Metso.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check app.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2",
+    "pdfkit": "^0.18.0"
+  }
+}

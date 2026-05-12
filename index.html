@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Informes Metso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link rel="stylesheet" href="styles.css?v=79" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body>
+    <main id="loginScreen" class="login-screen">
+      <section class="login-panel">
+        <div class="login-visual">
+          <div class="login-glow"></div>
+          <img class="brand-logo" src="logo.png" alt="Metso" />
+          <h1>Informes <em>Metso</em></h1>
+          <p>Plataforma operacional de informes semanales de mantencion. Plantas Selectiva y Colectiva.</p>
+          <div class="login-stats">
+            <span><i class="fas fa-industry"></i> Planta Selectiva</span>
+            <span><i class="fas fa-cogs"></i> Planta Colectiva</span>
+            <span><i class="fas fa-chart-line"></i> Reportes en tiempo real</span>
+          </div>
+        </div>
+        <form id="loginForm" class="login-form">
+          <p class="label-top">Acceso seguro</p>
+          <h2>Iniciar sesion</h2>
+          <label>Usuario
+            <span class="input-affix"><i class="fas fa-user"></i><select id="username" required><option value="">-- Cargando usuarios... --</option></select><button id="reloadUsersBtn" class="affix-btn" type="button" title="Recargar usuarios"><i class="fas fa-sync-alt"></i></button></span>
+            <small id="userListStatus" class="hint user-list-status"></small>
+          </label>
+          <label>Contrasena
+            <span class="input-affix"><i class="fas fa-lock"></i><input id="password" type="password" autocomplete="current-password" required placeholder="Ingrese contrasena" /></span>
+          </label>
+          <button class="login-submit" type="submit"><i class="fas fa-sign-in-alt"></i> Ingresar</button>
+          <button id="openRegisterBtn" class="link-register" type="button"><i class="fas fa-user-cog"></i> Gestion de usuarios</button>
+          <p id="loginError" class="error" role="alert"></p>
+        </form>
+      </section>
+    </main>
+
+    <main id="weekChooserScreen" class="week-chooser-screen hidden">
+      <section class="week-chooser-card">
+        <header class="week-chooser-header">
+          <img class="brand-logo compact" src="logo.png" alt="Metso" />
+          <div class="week-chooser-user">
+            <p class="label-top">Sesion iniciada</p>
+            <h2 id="weekChooserUser">-</h2>
+          </div>
+          <button id="weekChooserBack" class="link-button" type="button"><i class="fas fa-arrow-left"></i> Cambiar usuario</button>
+        </header>
+
+        <div class="week-chooser-options">
+          <article class="week-chooser-option create">
+            <div class="week-chooser-icon"><i class="fas fa-plus-circle"></i></div>
+            <h3>Crear nueva semana</h3>
+            <p>Inicia un nuevo informe semanal en blanco. Formato W-XX (por ejemplo, W-19).</p>
+            <button id="createWeekBtn" class="primary-button" type="button"><i class="fas fa-plus"></i> Crear semana nueva</button>
+            <div class="week-management-box">
+              <h4>Gestion de semanas</h4>
+              <p>El creador puede eliminar su semana. Admin puede eliminar cualquier semana.</p>
+              <label>Semana a eliminar
+                <span class="input-affix"><i class="fas fa-trash-alt"></i><select id="deleteWeekSelect"><option value="">-- Seleccionar semana --</option></select></span>
+              </label>
+              <button id="deleteWeekChooserBtn" class="danger-button" type="button" disabled><i class="fas fa-trash"></i> Eliminar semana</button>
+            </div>
+          </article>
+
+          <article class="week-chooser-option enter">
+            <div class="week-chooser-icon"><i class="fas fa-folder-open"></i></div>
+            <h3>Ingresar a semana existente</h3>
+            <p>Selecciona una semana ya guardada para continuar con el informe.</p>
+            <label>Semana guardada
+              <span class="input-affix"><i class="fas fa-calendar-week"></i><select id="existingWeekSelect"><option value="">-- Seleccionar semana --</option></select></span>
+            </label>
+            <button id="enterWeekBtn" class="soft-button" type="button" disabled><i class="fas fa-sign-in-alt"></i> Ingresar a semana</button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <main id="appScreen" class="app hidden">
+      <header class="app-header">
+        <div class="brand-line">
+          <img class="brand-logo compact" src="logo.png" alt="Metso" />
+          <div><strong>Informes semanales</strong><span>Trabajos de mantencion</span></div>
+        </div>
+        <nav class="module-tabs" aria-label="Menu principal">
+          <button class="tab active" data-section="mantencion"><i class="fas fa-tools"></i> Trabajos</button>
+          <button class="tab" data-section="termografias"><i class="fas fa-temperature-high"></i> Termografias</button>
+          <button class="tab" data-section="plan"><i class="fas fa-calendar-week"></i> Plan semanal</button>
+          <button class="tab" data-section="aforos"><i class="fas fa-tint"></i> Aforos</button>
+          <button class="tab" data-section="control"><i class="fas fa-sliders-h"></i> Ecuaciones</button>
+          <button class="tab" data-section="informes"><i class="fas fa-file-alt"></i> Informe</button>
+        </nav>
+        <div class="header-actions">
+          <button id="changeWeekBtn" class="link-button" type="button" title="Cambiar semana de trabajo"><i class="fas fa-calendar-week"></i> <span id="changeWeekLabel">Cambiar semana</span></button>
+          <button id="userManageBtn" class="link-button" type="button" title="Gestion de usuarios"><i class="fas fa-user-cog"></i> Usuarios</button>
+          <button id="logoutBtn" class="link-button" type="button" title="Cerrar sesion"><i class="fas fa-sign-out-alt"></i> Salir</button>
+        </div>
+      </header>
+
+      <section class="hero-card">
+        <div>
+          <p class="label-top">Modulo activo</p>
+          <h2 id="sectionTitle">Trabajos de mantencion</h2>
+          <p id="sectionSubtitle">El informe se arma por semana en dos partes principales: Planta Selectiva y Planta Colectiva.</p>
+        </div>
+        <input id="weekInput" class="hidden" type="text" />
+        <select id="weekFilter" class="hidden"><option value="">Semanas guardadas</option></select>
+      </section>
+
+      <section id="workWeekControl" class="card work-week-control hidden">
+        <div>
+          <p class="label-top">Semana activa</p>
+          <h3 id="activeWeekLabel">-</h3>
+          <p id="weekPermissionLabel" class="hint"></p>
+        </div>
+        <div>
+          <p class="label-top">Responsable del informe</p>
+          <h3 id="responsibleLabel">-</h3>
+        </div>
+      </section>
+
+      <section class="metrics" aria-label="Resumen">
+        <article><span id="metricMaintenance">0/0</span><p>Mantenciones completadas</p></article>
+        <article><span id="metricEmergencies">0</span><p>Emergentes semana</p></article>
+        <article><span id="metricImprovements">0</span><p>Mejoras semana</p></article>
+      </section>
+
+      <section id="mantencion" class="section active-section">
+        <div class="plant-tabs">
+          <button class="plant-tab active" data-plant="selectiva">Planta Selectiva</button>
+          <button class="plant-tab" data-plant="colectiva">Planta Colectiva</button>
+        </div>
+
+        <div class="work-tabs" aria-label="Submenu de trabajos por planta">
+          <button class="work-tab active" data-work-section="maintenance">Mantencion de equipos</button>
+          <button class="work-tab" data-work-section="emergency">Emergentes</button>
+          <button class="work-tab" data-work-section="improvement">Mejoras</button>
+        </div>
+
+        <article class="card section-block work-panel active-work-panel" data-work-panel="maintenance">
+          <div class="card-title">
+            <div><p class="label-top">Plantilla fija</p><h3>Mantencion de equipos</h3></div>
+            <p class="hint">Solo actualice fecha, OT, observaciones y fotos.</p>
+          </div>
+          <div id="maintenanceList" class="template-list"></div>
+        </article>
+
+        <div class="activity-grid">
+          <article class="card section-block work-panel" data-work-panel="emergency">
+            <div class="card-title"><div><p class="label-top">Variable semanal</p><h3>Actividades emergentes</h3></div></div>
+            <form id="emergencyForm" class="activity-form" data-type="emergente">
+              <label class="check-row wide"><input name="completed" type="checkbox" /> Trabajo terminado</label>
+              <label>Fecha<input name="date" type="date" required /></label>
+              <label class="tag-field activity-tag-field">TAG<input name="tag" type="hidden" /><button class="tag-tree-toggle" type="button">Seleccione TAG</button><div class="tag-tree-panel hidden"></div></label>
+              <label class="activity-equipment-field">Equipo<input name="equipment" type="text" required readonly /></label>
+              <label>OT<input name="workOrder" type="text" /></label>
+              <label>OT SGSCM<input name="workOrderSgscm" type="text" /></label>
+              <label class="wide">Trabajo realizado<textarea name="description" rows="4" required></textarea></label>
+              <label class="wide upload-box">Fotos<input name="photos" type="file" accept="image/*" multiple /><span>Puede cargar varias imagenes.</span></label>
+              <button class="primary-button activity-submit" type="submit">Agregar mantencion emergente</button>
+              <button class="soft-button activity-cancel hidden" type="button">Cancelar edicion</button>
+              <button class="danger-button activity-delete hidden" type="button">Eliminar trabajo</button>
+            </form>
+            <div id="emergencyEditPhotos" class="photo-grid editable-photos"></div>
+            <div id="emergencyList" class="record-list"></div>
+          </article>
+
+          <article class="card section-block work-panel" data-work-panel="improvement">
+            <div class="card-title"><div><p class="label-top">Variable semanal</p><h3>Actividades de mejora</h3></div></div>
+            <form id="improvementForm" class="activity-form" data-type="mejora">
+              <label class="check-row wide"><input name="completed" type="checkbox" /> Trabajo terminado</label>
+              <label>Fecha<input name="date" type="date" required /></label>
+              <label class="tag-field activity-tag-field">TAG<input name="tag" type="hidden" /><button class="tag-tree-toggle" type="button">Seleccione TAG</button><div class="tag-tree-panel hidden"></div></label>
+              <label class="activity-equipment-field">Equipo<input name="equipment" type="text" required readonly /></label>
+              <label>OT<input name="workOrder" type="text" /></label>
+              <label>OT SGSCM<input name="workOrderSgscm" type="text" /></label>
+              <label class="wide">Trabajo realizado<textarea name="description" rows="4" required></textarea></label>
+              <label class="wide upload-box">Fotos<input name="photos" type="file" accept="image/*" multiple /><span>Puede cargar varias imagenes.</span></label>
+              <button class="primary-button activity-submit" type="submit">Agregar mejora</button>
+              <button class="soft-button activity-cancel hidden" type="button">Cancelar edicion</button>
+              <button class="danger-button activity-delete hidden" type="button">Eliminar trabajo</button>
+            </form>
+            <div id="improvementEditPhotos" class="photo-grid editable-photos"></div>
+            <div id="improvementList" class="record-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="termografias" class="section thermo-module">
+        <div class="thermo-toolbar card">
+          <div>
+            <p class="label-top">Registro manual</p>
+            <h3>Termografias bombas</h3>
+            <p class="hint">Controle temperaturas por fecha, planta y bomba.</p>
+          </div>
+          <div class="thermo-actions">
+            <label>Seleccionar fecha<select id="thermoDateSelect"><option value="">-- Seleccionar fecha --</option></select></label>
+            <button class="soft-button" id="thermoLoadBtn" type="button">Cargar</button>
+            <button class="primary-button" id="thermoNewBtn" type="button">Nuevo registro</button>
+            <button class="soft-button" id="thermoChangeDateBtn" type="button">Modificar fecha</button>
+          </div>
+        </div>
+
+        <div class="thermo-tabs">
+          <button class="thermo-tab active" data-thermo-panel="colectiva" type="button">Planta Colectiva</button>
+          <button class="thermo-tab" data-thermo-panel="selectiva" type="button">Planta Selectiva</button>
+          <button class="thermo-tab" data-thermo-panel="stats" type="button">Estadisticas</button>
+        </div>
+
+        <article class="card thermo-panel active-thermo-panel" data-thermo-panel="colectiva">
+          <div class="card-title">
+            <div><p class="label-top">Colectiva</p><h3>Temperaturas bombas colectivas</h3></div>
+            <div class="thermo-panel-actions">
+              <button class="soft-button" data-thermo-export="colectiva" type="button">Exportar Excel</button>
+              <button class="danger-button" id="thermoDeleteDateBtn" type="button">Eliminar fecha</button>
+            </div>
+          </div>
+          <div id="thermoColectivaTable" class="thermo-table-wrap"></div>
+          <span id="thermoSaveState_colectiva" class="hint aforo-save-state">Guardado automatico al editar</span>
+        </article>
+
+        <article class="card thermo-panel" data-thermo-panel="selectiva">
+          <div class="card-title">
+            <div><p class="label-top">Selectiva</p><h3>Temperaturas bombas selectivas</h3></div>
+            <div class="thermo-panel-actions">
+              <button class="soft-button" data-thermo-export="selectiva" type="button">Exportar Excel</button>
+            </div>
+          </div>
+          <div id="thermoSelectivaTable" class="thermo-table-wrap"></div>
+          <span id="thermoSaveState_selectiva" class="hint aforo-save-state">Guardado automatico al editar</span>
+        </article>
+
+        <article class="card thermo-panel" data-thermo-panel="stats">
+          <div class="card-title">
+            <div><p class="label-top">Historico</p><h3>Tendencias de temperaturas</h3></div>
+          </div>
+          <div class="thermo-stats-grid">
+            <label>Planta Colectiva<select id="thermoStatsColectiva" onchange="window.metsoLoadThermoStats&&window.metsoLoadThermoStats('colectiva',this.value)"><option value="">-- Seleccionar bomba --</option></select></label>
+            <canvas id="thermoChartColectiva" height="180"></canvas>
+            <p id="thermoStatsStatusColectiva" class="thermo-stats-status"></p>
+            <label>Planta Selectiva<select id="thermoStatsSelectiva" onchange="window.metsoLoadThermoStats&&window.metsoLoadThermoStats('selectiva',this.value)"><option value="">-- Seleccionar bomba --</option></select></label>
+            <canvas id="thermoChartSelectiva" height="180"></canvas>
+            <p id="thermoStatsStatusSelectiva" class="thermo-stats-status"></p>
+          </div>
+        </article>
+      </section>
+
+      <section id="plan" class="section plan-module">
+        <div class="card plan-header">
+          <div>
+            <p class="label-top">Seguimiento plan semanal</p>
+            <h3 id="planWeekTitle">Plan semanal</h3>
+            <p id="planWeekRange" class="hint">Se alimenta desde plan.xlsx. La semana inicia miercoles y termina martes.</p>
+            <span id="planSaveState" class="hint aforo-save-state">Guardado automatico al cambiar estado</span>
+          </div>
+          <div class="plan-status-legend"><span class="plan-pill ok">Ok</span><span class="plan-pill pending">Pendiente</span><span class="plan-pill process">En proceso</span><span class="plan-pill cancelled">Cancelada</span></div>
+        </div>
+        <div id="planSummary" class="plan-summary-grid"></div>
+        <div class="plant-tabs plan-plant-tabs" aria-label="Plantas plan semanal">
+          <button class="plan-plant-tab active" data-plan-plant="selectiva">Planta Selectiva</button>
+          <button class="plan-plant-tab" data-plan-plant="colectiva">Planta Colectiva</button>
+        </div>
+        <div id="planTable" class="card plan-table-wrap"></div>
+      </section>
+
+      <section id="aforos" class="section Afonso-module">
+        <div class="card Afonso-hero">
+          <div>
+            <p class="label-top">INF-AFO-COUR-304</p>
+            <h3>Aforo muestras composito</h3>
+            <p class="hint">Ingreso de mediciones por cortador, calculo automatico y resumen semanal en litros.</p>
+          </div>
+          <div class="aforo-actions">
+            <span id="aforoSaveState" class="hint">Guardado automatico</span>
+          </div>
+        </div>
+        <div id="aforoSummary" class="aforo-summary"></div>
+        <div id="aforoContent" class="aforo-content"></div>
+      </section>
+
+      <section id="informes" class="section informes-module">
+        <div class="informes-hero">
+          <div class="informes-hero-text">
+            <p class="label-top">Executive weekly report</p>
+            <h3>Informe inteligente de semana actual</h3>
+            <p id="reportWeekRange" class="hint">Resumen operacional consolidado por planta, mantenciones, actividades, termografias, aforos y ecuaciones.</p>
+          </div>
+          <div class="informes-hero-actions">
+            <span id="reportWeekPill" class="report-week-pill">Semana actual</span>
+            <button class="primary-button" id="generateReportBtn" type="button"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+          </div>
+        </div>
+
+        <div class="report-command-bar">
+          <div class="report-plant-switch" aria-label="Planta informe">
+            <button class="active" data-report-plant="selectiva" type="button">Selectiva</button>
+            <button data-report-plant="colectiva" type="button">Colectiva</button>
+          </div>
+          <label class="report-type-filter">Vista
+            <select id="reportTypeSelect">
+              <option value="full">Completa</option>
+              <option value="maintenance">Mantenciones</option>
+              <option value="activities">Emergentes / mejoras</option>
+              <option value="thermo">Termografias</option>
+              <option value="aforo">Aforos</option>
+            </select>
+          </label>
+          <button class="soft-button" id="loadPreviewBtn" type="button"><i class="fas fa-sync-alt"></i> Actualizar</button>
+        </div>
+
+        <div id="reportKpis" class="report-kpis"></div>
+
+        <div class="report-grid">
+          <article class="report-panel report-panel-main">
+            <div class="report-panel-title"><span>Avance mantenciones</span><strong id="reportCompletionLabel">0%</strong></div>
+            <canvas id="reportCompletionChart" height="210"></canvas>
+          </article>
+          <article class="report-panel">
+            <div class="report-panel-title"><span>Total por causa</span><strong>Plan</strong></div>
+            <canvas id="reportCauseChart" height="210"></canvas>
+          </article>
+          <article class="report-panel report-brief" id="reportExecutiveBrief"></article>
+          <article class="report-panel report-detail" id="reportDetailList"></article>
+          <article class="report-panel report-wide" id="reportPlanPanel"></article>
+          <article class="report-panel report-wide" id="reportActivitiesPanel"></article>
+          <article class="report-panel report-wide" id="reportEquationsPanel"></article>
+          <article class="report-panel">
+            <div class="report-panel-title"><span>Aforos</span><strong>Litros</strong></div>
+            <div id="reportAforoClassic" class="report-aforo-classic"></div>
+          </article>
+          <article class="report-panel">
+            <div class="report-panel-title"><span>Bombas termografia</span><strong id="reportThermoPumpLabel">Semana</strong></div>
+            <canvas id="reportThermoChart" height="230"></canvas>
+          </article>
+          <article class="report-panel report-wide" id="reportThermoPanel"></article>
+        </div>
+
+        <div id="reportStatus" class="report-status"></div>
+      </section>
+
+      <section id="control" class="section equations-module">
+        <div class="card equations-header">
+          <div>
+            <p class="label-top">Registro operacional</p>
+            <h3>Ecuaciones y offsets</h3>
+            <p class="hint">Seleccione TAG (equipo): el flujo y la planta se asignan automaticamente. Los PSI trabajan con offset; los demas con elementos.</p>
+          </div>
+        </div>
+        <form id="equationForm" class="card equation-form">
+          <input name="id" type="hidden" />
+          <label class="eq-tag-field">Equipo (TAG)<select name="tagKey" required onchange="window.metsoTagChange&&window.metsoTagChange(this.value)"><option value="">-- Seleccione equipo --</option></select></label>
+          <label class="eq-flow-field">Flujo asociado<select name="flow" required><option value="">-- Seleccione flujo --</option></select></label>
+          <label class="eq-date-field">Fecha<input name="date" type="date" required /></label>
+          <label class="eq-time-field">Hora<input name="time" type="text" required pattern="^([01][0-9]|2[0-3]):[0-5][0-9]$" placeholder="HH:MM" maxlength="5" inputmode="numeric" /></label>
+          <label class="eq-plant-field">Planta<input type="text" name="plant" value="colectiva" readonly class="plant-readonly-field"></label>
+          <div class="eq-elements-offset-row">
+            <div class="eq-field">
+              <span class="eq-field-label">Elementos</span>
+              <div class="eq-elements"><label><input name="elements" type="checkbox" value="Fe"/>Fe</label><label><input name="elements" type="checkbox" value="Cu"/>Cu</label><label><input name="elements" type="checkbox" value="Mo"/>Mo</label><label><input name="elements" type="checkbox" value="Sol"/>Sol</label></div>
+            </div>
+            <label class="eq-offset-field">Offset<input name="offset" type="number" step="0.01" /></label>
+          </div>
+          <div class="equation-form-actions">
+            <button class="primary-button" type="submit">Guardar</button>
+          </div>
+        </form>
+        <div id="equationList" class="card equation-list"></div>
+      </section>
+    </main>
+
+    <template id="userManagerTemplate">
+      <form class="modal-card modal-form">
+        <div class="modal-icon"><i class="fas fa-user-plus"></i></div>
+        <h3>Gestion de usuarios</h3>
+        <p class="modal-subtitle">Agrega, modifica o elimina usuarios autorizados para ingresar.</p>
+        <label>Modificar usuario existente
+          <select name="existingUser"><option value="">-- Crear nuevo usuario --</option></select>
+        </label>
+        <label>Usuario
+          <span class="input-affix"><i class="fas fa-user"></i><input name="username" required placeholder="Nombre de usuario" /></span>
+        </label>
+        <label>Cargo
+          <span class="input-affix"><i class="fas fa-id-badge"></i><select name="cargo" required><option value="Supervisor">Supervisor</option><option value="Lider">Lider</option><option value="Operador mantenedor">Operador mantenedor</option></select></span>
+        </label>
+        <label>Contrasena
+          <span class="input-affix"><i class="fas fa-lock"></i><input name="password" type="password" required placeholder="Contrasena" /></span>
+        </label>
+        <div class="modal-actions">
+          <button class="danger-button hidden" data-delete-user type="button"><i class="fas fa-trash"></i> Eliminar</button>
+          <button class="soft-button" data-cancel type="button"><i class="fas fa-times"></i> Cancelar</button>
+          <button class="primary-button" type="submit"><i class="fas fa-check"></i> <span data-submit-label>Guardar</span></button>
+        </div>
+      </form>
+    </template>
+
+    <div id="modalOverlay" class="modal-overlay hidden" role="dialog" aria-modal="true"></div>
+
+    <script src="activity-tag-selector.js?v=52"></script>
+    <script src="app.js?v=79"></script>
+  </body>
+</html>
