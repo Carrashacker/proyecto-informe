@@ -6,7 +6,9 @@ const Database = require("better-sqlite3");
 
 const app = express();
 const port = process.env.PORT || 3000;
-const db = new Database(path.join(__dirname, "informes.db"));
+const dataDir = process.env.DATA_DIR || __dirname;
+const dbPath = path.join(dataDir, "informes.db");
+const db = new Database(dbPath);
 const PLAN_OPERATIONAL_YEAR = 2026;
 
 const thermographyPumps = {
@@ -982,7 +984,7 @@ app.get("/api/thermography/download/:file", (req, res) => {
 app.get("*", renderIndexWithUsers);
 
 app.listen(port, () => {
-  console.log(`Sistema de informes disponible en http://localhost:${port}`);
+  console.log(`Sistema de informes disponible en http://localhost:${port} (DB: ${dbPath})`);
 });
 
 function seedTemplates() {
