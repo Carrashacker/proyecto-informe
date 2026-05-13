@@ -1,7 +1,14 @@
 node_modules/
 *.db
+informes.db
 *.db-shm
 *.db-wal
 *.log
-.env
 .DS_Store
+__pycache__/
+*.pyc
+~$*.xlsx
+graphify-out/
+.claude/
+backups/
+Informe_*.pdf

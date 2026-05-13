@@ -1,0 +1,507 @@
+/* Reset y base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Contenedor principal */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+}
+
+/* Header con gradiente */
+.header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 30px 40px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.header p {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    font-weight: 300;
+}
+
+/* Panel de controles */
+.controls-panel {
+    background: #f8f9fa;
+    padding: 25px 40px;
+    border-bottom: 3px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.control-label {
+    font-weight: 700;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+/* Select personalizado */
+.select-custom {
+    border: 2px solid #3498db;
+    border-radius: 10px;
+    padding: 10px 15px;
+    font-size: 1rem;
+    background: white;
+    color: #2c3e50;
+    min-width: 200px;
+    transition: all 0.3s ease;
+}
+
+.select-custom:focus {
+    outline: none;
+    border-color: #2980b9;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Botones modernos */
+.btn {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 25px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    color: white;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+}
+
+/* Navegación con pestañas */
+.tabs-container {
+    background: #ecf0f1;
+    padding: 0 40px;
+}
+
+.tabs {
+    display: flex;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tab {
+    padding: 18px 30px;
+    background: transparent;
+    border: none;
+    color: #7f8c8d;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 10px 10px 0 0;
+    position: relative;
+}
+
+.tab:hover {
+    color: #2c3e50;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.tab.active {
+    color: #2c3e50;
+    background: white;
+    border-bottom: 3px solid #3498db;
+}
+
+/* Contenido de pestañas */
+.tab-content {
+    background: white;
+    min-height: 500px;
+}
+
+.tab-pane {
+    display: none;
+    padding: 0;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Tabla moderna */
+.table-container {
+    padding: 30px 40px;
+}
+
+.table-wrapper {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border: 2px solid #e9ecef;
+}
+
+.table-modern {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+.table-modern thead {
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+}
+
+.table-modern thead th {
+    color: white;
+    font-weight: 700;
+    padding: 20px 15px;
+    border: none;
+    font-size: 1rem;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.table-modern tbody tr {
+    border-bottom: 2px solid #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.table-modern tbody tr:hover {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    transform: scale(1.01);
+}
+
+.table-modern tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+.table-modern tbody tr:nth-child(even):hover {
+    background: linear-gradient(135deg, #f1f8ff 0%, #e3f2fd 100%);
+}
+
+.table-modern tbody td {
+    padding: 18px 15px;
+    border: none;
+    vertical-align: middle;
+    text-align: center;
+    font-size: 1rem;
+}
+
+/* Celdas especializadas */
+.cell-tag {
+    font-weight: 800;
+    color: #2c3e50;
+    text-align: left;
+    padding-left: 25px;
+    font-size: 1.1rem;
+    background: #f8f9fa;
+    border-right: 3px solid #e9ecef;
+}
+
+.cell-location {
+    color: #7f8c8d;
+    text-align: left;
+    padding-left: 25px;
+    font-size: 1rem;
+    background: #f8f9fa;
+    border-right: 3px solid #e9ecef;
+}
+
+.cell-temp {
+    background: white;
+    position: relative;
+}
+
+.cell-temp:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 20%;
+    height: 60%;
+    width: 2px;
+    background: linear-gradient(to bottom, transparent, #e9ecef, transparent);
+}
+
+/* Inputs de temperatura mejorados */
+.input-temp {
+    width: 100px;
+    height: 50px;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border: 2px solid #bdc3c7;
+    border-radius: 8px;
+    padding: 10px;
+    background: white;
+    color: #2c3e50;
+    transition: all 0.3s ease;
+}
+
+.input-temp:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    background: #f8f9fa;
+    transform: scale(1.05);
+}
+
+.input-temp:disabled {
+    background: #ecf0f1;
+    border-color: #95a5a6;
+    color: #7f8c8d;
+}
+
+/* Checkbox moderno */
+.cell-access {
+    background: #f8f9fa;
+    border-left: 3px solid #e9ecef;
+}
+
+.access-toggle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.toggle-switch {
+    width: 50px;
+    height: 26px;
+    background: #bdc3c7;
+    border-radius: 25px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: all 0.3s ease;
+}
+
+.toggle-switch.active {
+    background: #e74c3c;
+}
+
+.toggle-switch.active::after {
+    left: 27px;
+}
+
+/* Panel de acciones */
+.actions-panel {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 25px 40px;
+    border-top: 3px solid #3498db;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.action-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+/* Sección de estadísticas */
+.stats-section {
+    padding: 40px;
+    background: white;
+}
+
+.stats-title {
+    color: #2c3e50;
+    font-weight: 800;
+    margin-bottom: 30px;
+    font-size: 1.8rem;
+    text-align: center;
+}
+
+.chart-box {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    border: 2px solid #e9ecef;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.chart-label {
+    font-weight: 700;
+    color: #2c3e50;
+    font-size: 1.2rem;
+}
+
+/* Footer */
+.footer {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 25px 40px;
+    text-align: center;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.footer a {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.footer a:hover {
+    color: #2980b9;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .container {
+        margin: 10px;
+    }
+    
+    .table-modern {
+        font-size: 0.9rem;
+    }
+    
+    .input-temp {
+        width: 80px;
+        height: 45px;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .header {
+        padding: 20px;
+    }
+    
+    .controls-panel {
+        padding: 20px;
+        flex-direction: column;
+    }
+    
+    .control-group {
+        justify-content: center;
+    }
+    
+    .tabs-container {
+        padding: 0 20px;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .tab {
+        border-radius: 10px;
+        margin-bottom: 5px;
+    }
+    
+    .table-container {
+        padding: 20px;
+    }
+    
+    .table-wrapper {
+        overflow-x: auto;
+    }
+    
+    .actions-panel {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .action-group {
+        justify-content: center;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+    }
+}
+
+/* Efectos de carga */
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+}

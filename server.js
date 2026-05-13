@@ -232,6 +232,11 @@ seedTemplates();
 
 app.use(express.json({ limit: "80mb" }));
 app.use((req, res, next) => {
+  if (req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+  }
   if (req.path === "/" || /\.(html|js|css)$/i.test(req.path)) {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Pragma", "no-cache");
@@ -281,7 +286,23 @@ function renderIndexWithUsers(req, res) {
 app.get("/", renderIndexWithUsers);
 app.get("/index.html", renderIndexWithUsers);
 
-app.use(express.static(__dirname));
+const publicStatic = express.static(__dirname, { dotfiles: "ignore" });
+app.use((req, res, next) => {
+  const requestPath = req.path;
+  if (requestPath.startsWith("/api/")) return next();
+  const allowedStatic =
+    requestPath === "/styles.css" ||
+    requestPath === "/app.js" ||
+    requestPath === "/activity-tag-selector.js" ||
+    requestPath === "/logo.png" ||
+    /^\/Informe_[^/]+\.pdf$/i.test(requestPath) ||
+    /^\/(?:menu\/)?[^/]+\.(?:png|jpe?g|gif|webp|svg|ico)$/i.test(requestPath);
+  if (!allowedStatic) {
+    if (path.extname(requestPath)) return res.status(404).send("Not found");
+    return next();
+  }
+  return publicStatic(req, res, next);
+});
 
 app.get("/api/users", (req, res) => {
   const users = db.prepare("SELECT username, full_name AS fullName, role FROM users ORDER BY full_name ASC").all()
@@ -737,10 +758,10 @@ app.get("/api/report-preview", (req, res) => {
     const scheduledRows = planRows.filter((row) => /mantenci[oó]n/i.test(row.description || ""));
     const planCauseSummary = summarizePlanCauses(planRows);
     const maintenanceDaySummary = summarizeRowsByDay(scheduledRows);
-    const planOk = scheduledRows.filter((row) => row.status === "Ok").length;
-    const planProcess = scheduledRows.filter((row) => row.status === "En proceso").length;
-    const planCancelled = scheduledRows.filter((row) => row.status === "Cancelada").length;
-    const planPending = scheduledRows.filter((row) => row.status === "Pendiente").length;
+    const planOk = planRows.filter((row) => row.status === "Ok").length;
+    const planProcess = planRows.filter((row) => row.status === "En proceso").length;
+    const planCancelled = planRows.filter((row) => row.status === "Cancelada").length;
+    const planPending = planRows.filter((row) => row.status === "Pendiente").length;
     const maintenance = plantData.maintenance || [];
     const emergencies = plantData.emergencies || [];
     const improvements = plantData.improvements || [];
@@ -786,12 +807,13 @@ app.get("/api/report-preview", (req, res) => {
         maintenanceTotal: maintenance.length,
         maintenanceCompleted,
         maintenanceOpen: Math.max(0, maintenance.length - maintenanceCompleted),
+        planTotal: planRows.length,
         plannedMaintenanceTotal: scheduledRows.length,
         planOk,
         planProcess,
         planPending,
         planCancelled,
-        planCompliance: scheduledRows.length ? Math.round((planOk / scheduledRows.length) * 100) : 0,
+        planCompliance: planRows.length ? Math.round((planOk / planRows.length) * 100) : 0,
         emergencyTotal: emergencies.length,
         improvementTotal: improvements.length,
         equationsTotal: equations.length,
@@ -947,57 +969,6 @@ app.post("/api/report-generate", (req, res) => {
     doc.end();
   } catch (e) {
     res.status(500).json({ error: e.message });
-  }
-});
-
-app.get("/api/export", (req, res) => {
-  const exportData = {
-    version: 1,
-    exported_at: new Date().toISOString(),
-    tables: {}
-  };
-  const tables = [
-    "users", "maintenance_templates", "maintenance_records", "activity_records",
-    "thermography_records", "report_weeks", "plan_status_records", "aforo_records", "equation_offset_records"
-  ];
-  tables.forEach(table => {
-    exportData.tables[table] = db.prepare(`SELECT * FROM ${table}`).all();
-  });
-  res.json(exportData);
-});
-
-app.post("/api/import", (req, res) => {
-  const data = req.body;
-  if (!data || !data.tables) return res.status(400).json({ error: "Datos invalidos." });
-  
-  const importData = db.transaction(() => {
-    const tableOrder = ["users", "maintenance_templates", "maintenance_records", "activity_records",
-      "thermography_records", "report_weeks", "plan_status_records", "aforo_records", "equation_offset_records"];
-    
-    tableOrder.forEach(table => {
-      db.exec(`DELETE FROM ${table}`);
-      const rows = data.tables[table];
-      if (Array.isArray(rows) && rows.length > 0) {
-        const columns = Object.keys(rows[0]);
-        const placeholders = columns.map(() => "?").join(", ");
-        const insert = db.prepare(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`);
-        rows.forEach(row => {
-          const values = columns.map(col => {
-            const val = row[col];
-            if (typeof val === "object" && val !== null) return JSON.stringify(val);
-            return val;
-          });
-          insert.run(...values);
-        });
-      }
-    });
-  });
-  
-  try {
-    importData();
-    res.json({ success: true, message: "Datos importados correctamente." });
-  } catch (e) {
-    res.status(500).json({ error: "Error al importar: " + e.message });
   }
 });
 

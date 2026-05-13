@@ -41,7 +41,7 @@
   var aforoData = null;
   var equationList = [];
   var equationCanEdit = null;
-  var METSO_VERSION = "v=79-save-success-toast";
+  var METSO_VERSION = "v=101-safe-professional-redesign";
   console.log("[METSO] app.js " + METSO_VERSION + " cargado.");
   /* Badge visible en pantalla para confirmar version sin DevTools */
   setTimeout(function() {
@@ -49,7 +49,7 @@
     var b = document.createElement("div");
     b.id = "metsoVersionBadge";
     b.textContent = METSO_VERSION;
-    b.style.cssText = "position:fixed;bottom:8px;right:8px;background:#0a3d62;color:#fff;padding:4px 10px;border-radius:999px;font-size:11px;font-family:monospace;z-index:99999;opacity:.85;pointer-events:none;";
+    b.style.cssText = "position:fixed;bottom:12px;right:12px;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);color:rgba(255,255,255,0.4);padding:6px 12px;border-radius:8px;font-size:10px;font-family:'Outfit',sans-serif;font-weight:600;z-index:99999;border:1px solid rgba(255,255,255,0.1);pointer-events:none;";
     document.body.appendChild(b);
   }, 0);
   /* Polling: detecta cambios del TAG y actualiza flujos + planta */
@@ -354,9 +354,15 @@
   function show(el) { if (el) el.classList.remove("hidden"); }
 
   function api(method, path, body) {
-    var opts = { method: method, headers: { "Content-Type": "application/json" } };
+    var opts = { method: method, headers: { "Content-Type": "application/json" }, cache: "no-store" };
     if (body) opts.body = JSON.stringify(body);
     return fetch(path, opts).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); });
+  }
+
+  function refreshReportIfVisible() {
+    if (typeof window.metsoRefreshReport === "function" && document.getElementById("informes") && document.getElementById("informes").classList.contains("active-section")) {
+      window.metsoRefreshReport();
+    }
   }
 
   /* ===================== POPUPS (SweetAlert2) ===================== */
@@ -1777,6 +1783,7 @@ loginForm.onsubmit = function(e) {
             updatePlanRowStatus(rowKey, r.data.status || sel.value);
             sel.className = "plan-status-select " + planStatusClass(sel.value);
             renderPlanSummary();
+            refreshReportIfVisible();
             setPlanState("Guardado " + new Date().toLocaleTimeString(), "ok");
           }
         }).catch(function() {
@@ -1814,12 +1821,14 @@ loginForm.onsubmit = function(e) {
     var done = 0;
     var process = 0;
     var pending = 0;
+    var cancelled = 0;
     rows.forEach(function(row) {
       if (row.status === "Ok") done += 1;
       else if (row.status === "En proceso") process += 1;
+      else if (row.status === "Cancelada") cancelled += 1;
       else pending += 1;
     });
-    return { total: total, done: done, process: process, pending: pending, compliance: total ? Math.round((done / total) * 100) : 0 };
+    return { total: total, done: done, process: process, pending: pending, cancelled: cancelled, compliance: total ? Math.round((done / total) * 100) : 0 };
   }
 
   function renderPlanSummary() {
@@ -1841,6 +1850,7 @@ loginForm.onsubmit = function(e) {
           '<p><strong>' + card.data.done + '</strong><span>Realizadas</span></p>' +
           '<p><strong>' + card.data.pending + '</strong><span>Pendientes</span></p>' +
           '<p><strong>' + card.data.process + '</strong><span>En proceso</span></p>' +
+          '<p><strong>' + card.data.cancelled + '</strong><span>Canceladas</span></p>' +
           '<p><strong>' + card.data.total + '</strong><span>Total</span></p>' +
         '</div>' +
       '</article>';
@@ -3005,6 +3015,7 @@ loginForm.onsubmit = function(e) {
     function localApi(method, url, body) {
       return fetch(url, {
         method: method,
+        cache: "no-store",
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined
       }).then(function(res) {
@@ -3029,7 +3040,7 @@ loginForm.onsubmit = function(e) {
       if (!target) return;
       var pct = s.planCompliance || 0;
       target.innerHTML = [
-        { label: "Plan semanal", value: s.plannedMaintenanceTotal || 0, hint: "Mantenciones programadas desde plan", glow: "rgba(255,106,19,.18)" },
+        { label: "Plan semanal", value: s.planTotal || s.plannedMaintenanceTotal || 0, hint: (s.plannedMaintenanceTotal || 0) + " mantenciones programadas", glow: "rgba(255,106,19,.18)" },
         { label: "Cumplimiento", value: pct + "%", hint: (s.planOk || 0) + " OK / " + (s.planProcess || 0) + " proceso", glow: "rgba(46,125,50,.16)" },
         { label: "Canceladas", value: s.planCancelled || 0, hint: (s.planPending || 0) + " pendientes en plan", glow: "rgba(192,57,43,.16)" },
         { label: "Emergentes / mejoras", value: (s.emergencyTotal || 0) + (s.improvementTotal || 0), hint: (s.emergencyTotal || 0) + " emergentes / " + (s.improvementTotal || 0) + " mejoras", glow: "rgba(24,115,171,.16)" }
@@ -3045,11 +3056,11 @@ loginForm.onsubmit = function(e) {
       var pct = s.planCompliance || 0;
       if (brief) {
         brief.innerHTML = '<h4>Lectura ejecutiva</h4>' +
-          '<p>La planta ' + escLocal(data.plantLabel || data.plant || "") + ' registra <strong>' + (s.plannedMaintenanceTotal || 0) + '</strong> mantenciones programadas desde Plan Semanal y un avance de cierre de <strong>' + pct + '%</strong> para ' + escLocal(data.week || "") + '.</p>' +
+          '<p>La planta ' + escLocal(data.plantLabel || data.plant || "") + ' registra <strong>' + (s.planTotal || s.plannedMaintenanceTotal || 0) + '</strong> actividades en Plan Semanal, incluyendo <strong>' + (s.plannedMaintenanceTotal || 0) + '</strong> mantenciones programadas, y un avance de cierre de <strong>' + pct + '%</strong> para ' + escLocal(data.week || "") + '.</p>' +
           '<ul>' +
           '<li><span class="report-dot"></span><span>' + (s.planOk || 0) + ' programadas marcadas Ok, ' + (s.planProcess || 0) + ' en proceso, ' + (s.planPending || 0) + ' pendientes y ' + (s.planCancelled || 0) + ' canceladas.</span></li>' +
           '<li><span class="report-dot"></span><span>' + ((s.emergencyTotal || 0) + (s.improvementTotal || 0)) + ' actividades fueron registradas esta semana.</span></li>' +
-          '<li><span class="report-dot"></span><span>' + (s.equationsTotal || 0) + ' registros de ecuaciones/offset disponibles.</span></li>' +
+          '<li><span class="report-dot"></span><span>' + (s.equationsTotal || 0) + ' registros de ecuaciones/offset disponibles en esta planta.</span></li>' +
           '</ul>';
       }
       if (detail) {
@@ -3153,9 +3164,9 @@ loginForm.onsubmit = function(e) {
           var pct = Math.max(2, (row.total / maxCause) * 100);
           return '<div class="report-cause-row"><span>' + escLocal(row.label) + '</span><div class="report-cause-track"><i style="width:' + pct.toFixed(1) + '%"></i></div><strong>' + row.total + '</strong></div>';
         }).join("") + '</div>';
-        planPanel.innerHTML = '<div class="report-panel-title"><span>Resumen mantenciones programadas</span><strong>Plan semanal</strong></div>' +
+        planPanel.innerHTML = '<div class="report-panel-title"><span>Resumen plan semanal</span><strong>Estados</strong></div>' +
           '<div class="report-maint-summary">' +
-          '<div class="report-maint-card"><span>Total</span><strong>' + (s.plannedMaintenanceTotal || 0) + '</strong></div>' +
+          '<div class="report-maint-card"><span>Total plan</span><strong>' + (s.planTotal || s.plannedMaintenanceTotal || 0) + '</strong></div>' +
           '<div class="report-maint-card"><span>Cumplimiento</span><strong>' + (s.planCompliance || 0) + '%</strong></div>' +
           '<div class="report-maint-card"><span>En proceso</span><strong>' + (s.planProcess || 0) + '</strong></div>' +
           '<div class="report-maint-card"><span>Canceladas</span><strong>' + (s.planCancelled || 0) + '</strong></div>' +
@@ -3226,6 +3237,7 @@ loginForm.onsubmit = function(e) {
         });
       });
       if (refreshBtn) refreshBtn.addEventListener("click", loadDashboard);
+      window.metsoRefreshReport = loadDashboard;
       typeSelect.addEventListener("change", loadDashboard);
       if (generateBtn) {
         generateBtn.addEventListener("click", function() {

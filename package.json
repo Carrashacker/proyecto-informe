@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check app.js"
+    "check": "node --check server.js && node --check app.js && node --check activity-tag-selector.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.1",

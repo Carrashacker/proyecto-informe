@@ -1,43 +1,67 @@
-const flowsCatalog = {
-  tags: [
-    { key: "3221-SA-011", display: "3221-SA-011", equipment: "Cortador primario Linea 1" },
-    { key: "3221-SA-021", display: "3221-SA-021", equipment: "Cortador primario Linea 2" },
-    { key: "3221-SA-031", display: "3221-SA-031", equipment: "Cortador primario Linea 3" },
-    { key: "3611-SA-002", display: "3611-SA-002", equipment: "Cortador concentrado Bulk" },
-    { key: "5511-SA-001", display: "5511-SA-001", equipment: "Cortador relave final" },
-    { key: "3221-AZ-011", display: "3221-AZ-011", equipment: "PSI-500 Molienda" },
-    { key: "3511-AZ-004", display: "3511-AZ-004", equipment: "PSI-500 Remolienda" },
-    { key: "3221-AZ-012", display: "3221-AZ-012", equipment: "Analizador Courier Linea 1" },
-    { key: "3311-AZ-031", display: "3311-AZ-031", equipment: "Analizador Courier Linea 2" },
-    { key: "3311-AZ-012", display: "3311-AZ-012", equipment: "Analizador Courier Linea 3" },
-    { key: "3511-AZ-002", display: "3511-AZ-002", equipment: "Analizador Courier Bulk" },
-    { key: "3811-ZM-601", display: "3811-ZM-601", equipment: "Multiplexor analizador leyes" },
-    { key: "3811-ZM-602", display: "3811-ZM-602", equipment: "Multiplexor analizador leyes" },
-    { key: "3811-SA-006", display: "3811-SA-006", equipment: "Tablero VBS" },
-    { key: "3811-SA-007", display: "3811-SA-007", equipment: "Tablero VBS" },
-    { key: "3811-SA-008", display: "3811-SA-008", equipment: "Tablero VBS" },
-    { key: "3811-SA-009", display: "3811-SA-009", equipment: "Tablero VBS" },
-    { key: "3811-SA-012", display: "3811-SA-012", equipment: "Tablero VBS" },
-    { key: "3811-SA-023", display: "3811-SA-023", equipment: "Tablero VBS" },
-    { key: "3811-SA-028", display: "3811-SA-028", equipment: "Tablero VBS" },
-    { key: "3811-SA-031", display: "3811-SA-031", equipment: "Tablero VBS" },
-    { key: "3511-SA-012", display: "3511-SA-012", equipment: "Caja control VBS" },
-    { key: "3311-SA-011", display: "3311-SA-011", equipment: "Caja control VBS" },
-    { key: "3311-SA-021", display: "3311-SA-021", equipment: "Caja control VBS" },
-    { key: "3311-SA-031", display: "3311-SA-031", equipment: "Caja control VBS" },
-    { key: "3311-SA-012", display: "3311-SA-012", equipment: "Caja control VBS" },
-    { key: "3311-SA-022", display: "3311-SA-022", equipment: "Caja control VBS" },
-    { key: "3311-SA-032", display: "3311-SA-032", equipment: "Caja control VBS" },
-    { key: "3511-SA-013", display: "3511-SA-013", equipment: "Caja control VBS" },
-    { key: "3511-SA-011", display: "3511-SA-011", equipment: "Caja control VBS" },
-    { key: "3511-SA-014", display: "3511-SA-014", equipment: "Caja control VBS" },
-    { key: "3511-SA-002", display: "3511-SA-002", equipment: "Caja control VBS" },
-    { key: "3511-SA-004", display: "3511-SA-004", equipment: "Caja control VBS" },
-    { key: "3511-SA-006", display: "3511-SA-006", equipment: "Caja control VBS" },
-    { key: "3511-SA-008", display: "3511-SA-008", equipment: "Caja control VBS" },
-    { key: "3611-SA-002", display: "3611-SA-002", equipment: "Caja control VBS" },
-  ],
-  flows: [],
-};
+// Catalogo de flujos por TAG/Equipo extraido de flujos.xlsx
+// Cada TAG identifica un analizador y lista solo los flujos asociados a ese equipo.
+// Editar este archivo es la forma mas rapida de actualizar el catalogo sin depender de Python.
 
-module.exports = flowsCatalog;
+module.exports = {
+  tags: [
+    { key: "3811-az-601", display: "3811-AZ-601", equipment: "COURIER MOLIBDENO" },
+    { key: "3221-az-012", display: "3221-AZ-012", equipment: "COURIER ALIMENTACION" },
+    { key: "3311-az-031", display: "3311-AZ-031", equipment: "COURIER RELAVES" },
+    { key: "3311-az-012", display: "3311-AZ-012", equipment: "COURIER CONCENTRADOS" },
+    { key: "3511-a-002",  display: "3511-AZ-002", equipment: "COURIER REMOLIENDA" },
+    { key: "3221-az-011", display: "3221-AZ-011", equipment: "PSI ALIMENTACION" },
+    { key: "3511-az-004", display: "3511-AZ-004", equipment: "PSI REMOLIENDA" }
+  ],
+  flows: {
+    "3811-az-601": [
+      "Concentrado Colectivo",
+      "Concentrado pre primario",
+      "Colas primaria  Fila 1",
+      "Colas primaria Fila 2",
+      "Concentrado primario Fila 1",
+      "Concentrado primario Fila 2",
+      "concentrado 1° limpieza",
+      "concentrado 2° Limpieza",
+      "Concentrado 3° limpieza",
+      "Concentrado Final Moly"
+    ],
+    "3221-az-012": [
+      "Alimentacion Fila 1",
+      "Alimentacion fila 2",
+      "Alimentacion Fila 3"
+    ],
+    "3311-az-031": [
+      "Relave Scavenger",
+      "Relave Fila 3",
+      "Relave Fila 2",
+      "Relave Fila 1"
+    ],
+    "3311-az-012": [
+      "concentrado 1° limpieza",
+      "concentrado Scavenger",
+      "Relave 1° limpieza",
+      "Concentrado Rougher Fila 1",
+      "Concentrado Rougher Fila 2",
+      "Concentrado Rougher fila 3"
+    ],
+    "3511-a-002": [
+      "concentrado Celda n° 3",
+      "concentrado Celda n° 2",
+      "concentrado Celda n° 4",
+      "concentrado final Bulk",
+      "concentrado Celda n° 1",
+      "concentrado Alta Ley",
+      "concentrado Celda n° 5",
+      "concentrado Celda n° 6"
+    ],
+    "3221-az-011": [
+      "Linea 1",
+      "Linea 2",
+      "Linea 3"
+    ],
+    "3511-az-004": [
+      "Alta ley",
+      "Bulk"
+    ]
+  }
+};

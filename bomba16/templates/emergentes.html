@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="header">
+  <h3>Actividades – Emergentes</h3>
+  <div class="sub">Ingresa una actividad emergente a la vez. La siguiente fila se genera automáticamente al guardar.</div>
+</header>
+
+<!-- Filtros: Año / Semana / IR -->
+<form method="POST" action="{{ url_for('emergentes') }}" class="card bar">
+  <div class="field">
+    <label>Año</label>
+    <select name="year">
+      {% for y in years %}
+        <option value="{{y}}" {% if y==year %}selected{% endif %}>{{y}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Semana</label>
+    <select name="week">
+      {% for w in weeks %}
+        <option value="{{w}}" {% if w==week %}selected{% endif %}>{{w}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" name="action" value="filter" class="btn secondary">🔍 IR</button>
+</form>
+
+<!-- Formulario de entrada (solo una fila) -->
+<div class="card">
+  <h4>📝 Ingresar/Editar actividad</h4>
+  <form method="POST" action="{{ url_for('emergentes', year=year, week=week) }}">
+    <input type="hidden" name="action" value="save_fila">
+    {% if edit_index is not none %}
+      <input type="hidden" name="edit_index" value="{{ edit_index }}">
+      <p style="color: #e67e22; font-weight: 500;">✏️ Editando fila #{{ edit_index + 1 }}</p>
+    {% endif %}
+    
+    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+      <thead>
+        <tr>
+          <th style="width: 10%;">Número OT</th>
+          <th style="width: 15%;">Equipo</th>
+          <th style="width: 35%;">Descripción de actividad</th>
+          <th style="width: 10%;">Turno</th>
+          <th style="width: 10%;">Fecha</th>
+          <th style="width: 10%;">Planta</th>
+          <th style="width: 10%;">Status</th>  <!-- ¡Status al final! -->
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="text" name="ot" value="{{ fila_actual['Número OT'] }}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></td>
+          <!-- ✅ CAMBIO CLAVE: Campo "Equipo" ahora es un input de texto libre -->
+          <td><input type="text" name="equipo" value="{{ fila_actual['Equipo'] }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></td>
+          <td><input type="text" name="desc" value="{{ fila_actual['Descripción de actividad'] }}" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></td>
+          <td>
+            <select name="turno" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+              <option value="">-- Seleccione --</option>
+              <option value="Día" {% if fila_actual['Turno'] == 'Día' %}selected{% endif %}>Día</option>
+              <option value="Noche" {% if fila_actual['Turno'] == 'Noche' %}selected{% endif %}>Noche</option>
+            </select>
+          </td>
+          <td>
+            <select name="fecha" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" required>
+              <option value="">-- Seleccione --</option>
+              {% for fecha in fechas_semana %}
+              <option value="{{fecha}}" {% if fecha == fila_actual['Fecha'] %}selected{% endif %}>{{fecha}}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="planta" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" required>
+              <option value="">-- Seleccione --</option>
+              <option value="Colectiva" {% if fila_actual['Planta'] == 'Colectiva' %}selected{% endif %}>Colectiva</option>
+              <option value="Selectiva" {% if fila_actual['Planta'] == 'Selectiva' %}selected{% endif %}>Selectiva</option>
+            </select>
+          </td>
+          <td>
+            <select name="status" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+              <option value="">-- Seleccione --</option>
+              <option value="OK" {% if fila_actual['Status'] == 'OK' %}selected{% endif %}>OK</option>
+              <option value="En proceso" {% if fila_actual['Status'] == 'En proceso' %}selected{% endif %}>En proceso</option>
+              <option value="Cancelada" {% if fila_actual['Status'] == 'Cancelada' %}selected{% endif %}>Cancelada</option>
+            </select>
+          </td>
+          <td><button type="submit" class="btn primary" style="padding: 8px 16px;">✅ {{ 'Actualizar' if edit_index is not none else 'Guardar' }} Fila</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </form>
+</div>
+
+<!-- Tabla de filas guardadas (orden ascendente) -->
+{% if filas_guardadas %}
+<div class="card">
+  <h4>📋 Actividades guardadas ({{ filas_guardadas|length }})</h4>
+  <div class="table-wrap">
+    <table style="width: 100%;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Número OT</th>
+          <th>Equipo</th>
+          <th>Descripción de actividad</th>
+          <th>Turno</th>
+          <th>Fecha</th>
+          <th>Planta</th>
+          <th>Status</th>  <!-- ¡Status al final! -->
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas_guardadas %}  <!-- ¡Orden ascendente (0,1,2...)! -->
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ fila['Número OT'] }}</td>
+          <td>{{ fila['Equipo'] }}</td>
+          <td style="max-width: 400px; word-wrap: break-word;">{{ fila['Descripción de actividad'] }}</td>
+          <td>{{ fila['Turno'] }}</td>
+          <td>{{ fila['Fecha'] }}</td>
+          <td>{{ fila['Planta'] }}</td>
+          <td>{{ fila['Status'] }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('emergentes', year=year, week=week) }}" style="display: inline;">
+              <input type="hidden" name="action" value="edit_fila">
+              <input type="hidden" name="edit_index" value="{{ loop.index0 }}">  <!-- ¡Índice correcto! -->
+              <button type="submit" class="btn" style="padding: 5px 10px; background: #3498db; color: white; font-size: 0.9em; margin-right: 5px;">✏️ Modificar</button>
+            </form>
+            <form method="POST" action="{{ url_for('emergentes', year=year, week=week) }}" style="display: inline;" onsubmit="return confirm('¿Eliminar esta fila?')">
+              <input type="hidden" name="action" value="delete_fila">
+              <input type="hidden" name="delete_index" value="{{ loop.index0 }}">  <!-- ¡Índice correcto! -->
+              <button type="submit" class="btn" style="padding: 5px 10px; background: #e74c3c; color: white; font-size: 0.9em;">🗑️ Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="header">
+  <h3>Planta Colectiva</h3>
+  <div class="sub">Selecciona Año, Semana y Fecha, sube lista, edita Status y guarda.</div>
+</header>
+
+<!-- Filtros: Año / Semana / Fecha / IR / Subir Lista -->
+<form method="POST" action="{{ url_for('colectiva') }}" enctype="multipart/form-data" class="card bar">
+  <div class="field">
+    <label>  Año</label>
+    <select name="year">
+      {% for y in years %}
+        <option value="{{y}}" {% if y==year %}selected{% endif %}>{{y}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Semana</label>
+    <select name="week">
+      {% for w in weeks %}
+        <option value="{{w}}" {% if w==week %}selected{% endif %}>{{w}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Fecha</label>
+    <select name="fecha_filtro">
+      <option value="">Todas</option>
+      {% for fecha in fechas_unicas %}
+        <option value="{{ fecha }}" {% if fecha == fecha_filtro %}selected{% endif %}>{{ fecha }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" name="action" value="filter" class="btn secondary">🔍 IR</button>
+  <div class="field">
+    <label>Lista semanal</label>
+    <input type="file" name="listfile" accept=".xlsx,.xlsm">
+  </div>
+  <button type="submit" name="action" value="upload" class="btn">📤 Subir lista</button>
+</form>
+
+{% if no_list %}
+  <div class="alert">No hay archivo de lista para S{{week}} de {{year}}. Sube uno para ver datos.</div>
+{% else %}
+
+<!-- KPIs -->
+<section class="kpi-row">
+  <div class="kpi"><b>Realizadas (OK)</b><span>{{ ok_count }}</span></div>
+  <div class="kpi"><b>En proceso</b><span>{{ en_proceso }}</span></div> <!-- NUEVO -->
+  <div class="kpi"><b>Canceladas</b><span>{{ canceladas }}</span></div>
+  <div class="kpi"><b>Total</b><span>{{ total }}</span></div>
+  <div class="kpi"><b>Cumplimiento %</b><span>{{ cumplimiento }}</span></div>
+</section>
+
+<!-- Solo botón Guardar -->
+<form method="POST" action="{{ url_for('colectiva', year=year, week=week, fecha_filtro=fecha_filtro) }}">
+  <div class="card bar actions">
+    <button type="submit" name="action" value="save" class="btn primary">💾 Guardar</button>
+  </div>
+
+  <div class="card table-wrap">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Número OT</th>
+            <th>Equipo</th>
+            <th>Descripción de actividad</th>
+            <th>Turno</th>
+            <th>Fecha</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for i, row in rows %}
+          <tr>
+            <td>{{ i + 1 }}</td>
+            <td>{{ row['Número OT'] }}</td>
+            <td>{{ row['Equipo'] }}</td>
+            <td class="desc">{{ row['Descripción de actividad'] }}</td>
+            <td>{{ row['Turno'] }}</td>
+            <td>{{ row['Fecha'] }}</td>
+            <td>
+              <select name="status_{{ i }}" class="select">
+                {% set cur = row['Status'] or '' %}
+                <option value="" {% if cur=='' %}selected{% endif %}></option>
+                <option value="OK" {% if cur=='OK' %}selected{% endif %}>OK</option>
+                <option value="En proceso" {% if cur=='En proceso' %}selected{% endif %}>En proceso</option>
+                <option value="Cancelada" {% if cur=='Cancelada' %}selected{% endif %}>Cancelada</option>
+              </select>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

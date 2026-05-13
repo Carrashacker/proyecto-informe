@@ -1,0 +1,5 @@
+
+> informes-metso@1.0.0 start
+> node server.js
+
+Sistema de informes disponible en http://localhost:3000

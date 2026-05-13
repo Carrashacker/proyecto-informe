@@ -1,0 +1,191 @@
+<!-- templates/estadisticas.html -->
+{% extends "base.html" %}
+{% block content %}
+<header class="header">
+  <h3>📊 Dashboard de Rendimiento - Semana {{ week }} del {{ year }}</h3>
+  <div class="sub">KPIs que consideran 'En Proceso' como estado independiente.</div>
+</header>
+
+<!-- ===== FILTROS ===== -->
+<form method="POST" action="{{ url_for('estadisticas') }}" class="card bar">
+  <div class="field">
+    <label>Año</label>
+    <select name="year">
+      {% for y in years %}
+        <option value="{{y}}" {% if y==year %}selected{% endif %}>{{y}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Semana (ISO)</label>
+    <select name="week">
+      {% for w in weeks %}
+        <option value="{{w}}" {% if w==week %}selected{% endif %}>{{w}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field" style="flex:1;">
+    <label>Días (Selecciona uno o varios)</label>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;max-height:80px;overflow-y:auto;padding:5px;border:1px solid #ddd;border-radius:6px;background:white;">
+      {% for fecha in fechas_formateadas %}
+        <label style="display:flex;align-items:center;gap:5px;white-space:nowrap;">
+          <input type="checkbox" name="dias_filtro" value="{{ fecha }}"
+                 {% if fecha in dias_seleccionados %}checked{% endif %}>{{ fecha }}
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+  <button type="submit" class="btn primary">🔍 Aplicar Filtro</button>
+  <a href="{{ url_for('exportar_pdf_estadisticas', year=year, week=week) }}" class="btn secondary" style="margin-left:10px;">📄 Exportar a PDF</a>
+</form>
+
+<!-- ===== KPIs GLOBALES ===== -->
+<div class="card">
+  <h4>📈 Rendimiento Global (Días Seleccionados)</h4>
+  <div class="kpi-grid">
+    <!-- Rendimiento -->
+    <div class="kpi-card" style="border-left:5px solid #2ecc71;">
+      <h5 style="color:#27ae60;">🎯 Rendimiento</h5>
+      <div class="kpi-value" style="color:#27ae60;">{{ kpi_global.rendimiento_dinamico }}</div>
+      <div class="kpi-detail">
+        <strong>OTs OK:</strong>
+        {{ datos_por_dia|sum(attribute='ok_programadas') + datos_por_dia|sum(attribute='ok_emergentes') }}
+        <br><strong>Total OTs:</strong>
+        {{ datos_por_dia|sum(attribute='total_programadas') + datos_por_dia|sum(attribute='total_emergentes') }}
+      </div>
+    </div>
+
+    <!-- Cumplimiento Semanal -->
+    <div class="kpi-card" style="border-left:5px solid #9b59b6;">
+      <h5 style="color:#8e44ad;">✅ Cumplimiento Semanal</h5>
+      <div class="kpi-value" style="color:#8e44ad;">{{ kpi_global.cumplimiento_semanal }}</div>
+      <div class="kpi-detail">
+        <strong>OTs OK Programadas:</strong> {{ kpi_global.ok_programadas }}<br>
+        <strong>Total Programadas:</strong> {{ kpi_global.total_programadas }}
+      </div>
+    </div>
+
+    <!-- OTs Programadas -->
+    <div class="kpi-card" style="border-left:5px solid #3498db;">
+      <h5>📋 OTs Programadas</h5>
+      <div class="kpi-value">152</div>
+      <div class="kpi-detail">
+        <strong>OK:</strong> {{ kpi_global.ok_programadas }}<br>
+        En Proceso: {{ kpi_global.ep_programadas }}<br>
+        Canceladas: {{ kpi_global.canceladas_programadas }}
+      </div>
+    </div>
+
+    <!-- OTs Emergentes -->
+    <div class="kpi-card" style="border-left:5px solid #e67e22;">
+      <h5>🚨 OTs Emergentes</h5>
+      <div class="kpi-value">{{ kpi_global.total_emergentes }}</div>
+      <div class="kpi-detail">
+        <strong>OK:</strong> {{ kpi_global.ok_emergentes }}<br>
+        En Proceso: {{ kpi_global.ep_emergentes }}<br>
+        Canceladas: {{ kpi_global.canceladas_emergentes }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RENDIMIENTO POR DÍA ===== -->
+<div class="card">
+  <h4>📅 Rendimiento por Día</h4>
+  <div class="table-wrap">
+    <table style="width:100%;">
+      <thead>
+        <tr>
+          <th>Fecha</th><th>Cant OTs</th><th>OTs OK</th>
+          <th>OTs En Proceso</th><th>OTs Canceladas</th>
+          <th>OTs Emergentes</th><th>Rendimiento</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dia in datos_por_dia %}
+        <tr>
+          <td>{{ dia.fecha }}</td>
+          <td>{{ dia.total_programadas + dia.total_emergentes }}</td>
+          <td>{{ dia.ok_programadas + dia.ok_emergentes }}</td>
+          <td>{{ dia.ep_programadas + dia.ep_emergentes }}</td>
+          <td>{{ dia.canceladas_programadas + dia.canceladas_emergentes }}</td>
+          <td>{{ dia.total_emergentes }}</td>
+          <td><strong>{{ dia.cumplimiento }}</strong></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;">No hay datos para los días seleccionados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== LISTADO EMERGENTES ===== -->
+<div class="card">
+  <h4>📋 Listado de Actividades Emergentes</h4>
+  <div class="table-wrap">
+    <table style="width:100%;">
+      <thead>
+        <tr>
+          <th>#</th><th>Número OT</th><th>Equipo</th>
+          <th>Descripción</th><th>Fecha</th><th>Status</th><th>Planta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in emergentes %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ fila['Número OT'] }}</td>
+          <td>{{ fila['Equipo'] }}</td>
+          <td style="max-width:200px;word-wrap:break-word;">{{ fila['Descripción de actividad'] }}</td>
+          <td>{{ fila['Fecha'] }}</td>
+          <td>{{ fila['Status'] }}</td>
+          <td>{{ fila['Planta'] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;">No hay actividades emergentes registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== LISTADO OFFSETS ===== -->
+<div class="card">
+  <h4>⚙️ Listado de Ecuaciones y Offsets</h4>
+  <div class="table-wrap">
+    <table style="width:100%;">
+      <thead>
+        <tr>
+          <th>#</th><th>Tag Equipo</th><th>Flujo</th>
+          <th>Elementos</th><th>Fecha</th><th>Hora</th><th>Offset</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in offsets %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ fila['Tag equipo'] }}</td>
+          <td>{{ fila['Flujo'] }}</td>
+          <td>{{ fila['Elementos']|join(', ') if fila['Elementos'] is iterable else fila['Elementos'] }}</td>
+          <td>{{ fila['Fecha'] }}</td>
+          <td>{{ fila['Hora'] }}</td>
+          <td>{{ fila['Offset Ingresado'] }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;">No hay ecuaciones de offset registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===== ESTILOS KPI ===== -->
+<style>
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:20px;margin-top:20px}
+.kpi-card{background:#f8f9fa;border-radius:8px;padding:20px;box-shadow:0 2px 5px rgba(0,0,0,0.1);text-align:center}
+.kpi-card h5{margin:0 0 10px 0;color:#333;font-size:1.1em}
+.kpi-value{font-size:2em;font-weight:bold;color:#2c3e50;margin:10px 0}
+.kpi-detail{font-size:0.9em;color:#7f8c8d}
+</style>
+{% endblock %}

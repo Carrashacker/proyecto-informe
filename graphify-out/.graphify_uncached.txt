@@ -1,0 +1,62 @@
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/thermography_export.py
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/server.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/flows_parser.py
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/flows_catalog.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/activity-tag-selector.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/app.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/plan_parser.py
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/impo.py
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/Copia de impo.py
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/app.py
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v45-20260510-203354/activity-tag-selector.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v45-20260510-203354/app.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/pre-restore-v64-clean-20260511-095550/app.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v46-compact-20260510-203901/activity-tag-selector.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/ecuaciones-v55-rewrite-20260510/app.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/pre-restore-v64-clean-20260511-095617/app.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v47-tree-20260510-204335/activity-tag-selector.js
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/graphify-out/converted/aforo_fe11dc95.md
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/cookies.txt
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/graphify-out/converted/flujos_13a23255.md
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/AGENTS.md
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/graphify-out/converted/plan_323c3bce.md
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/graphify-out/converted/Control de temperatura bombas selectiva_c65f0f17.md
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/graphify-out/converted/Control de temperaturas bombas colectivas_16b6035d.md
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/base.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/colectiva.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/placeholder.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/selectiva.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/estadisticas.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/emergentes.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/templates/offsets.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v45-20260510-203354/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/pre-restore-v64-clean-20260511-095550/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v46-compact-20260510-203901/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/ecuaciones-v55-rewrite-20260510/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/pre-restore-v64-clean-20260511-095617/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/backups/activity-tag-selector-v47-tree-20260510-204335/index.html
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/logo.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/2.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/3.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/1.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/static/Metso-nuevo-Logo.jpg
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/bomba16/static/logo.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171221.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171027.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171345.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171756.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-07 143549.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171120.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171508.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-07 143820.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171907.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171842.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171302.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171059.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-07 143744.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171820.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171638.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171428.png
+/Users/robinsoncarrascoveliz/Desktop/proyecto_informe/menu/Captura de pantalla 2026-05-10 171548.png

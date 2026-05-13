@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="header">
+  <h3>Ingreso de ecuaciones y ajuste de offset</h3>
+</header>
+
+<!-- Filtros: Año / Semana / IR -->
+<form method="POST" action="{{ url_for('offsets') }}" class="card bar">
+  <div class="field">
+    <label>Año</label>
+    <select name="year">
+      {% for y in years %}
+        <option value="{{y}}" {% if y==year %}selected{% endif %}>{{y}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label>Semana</label>
+    <select name="week">
+      {% for w in weeks %}
+        <option value="{{w}}" {% if w==week %}selected{% endif %}>{{w}}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" name="action" value="filter" class="btn secondary">🔍 IR</button>
+</form>
+
+<!-- Formulario de entrada (solo una fila) -->
+<div class="card">
+  <h4>📝 Ingresar/Editar ecuación</h4>
+  <form method="POST" action="{{ url_for('offsets', year=year, week=week) }}">
+    <input type="hidden" name="action" value="save_offset">
+    {% if edit_index is not none %}
+      <input type="hidden" name="edit_index" value="{{ edit_index }}">
+      <p style="color: #e67e22; font-weight: 500;">✏️ Editando fila #{{ edit_index + 1 }}</p>
+    {% endif %}
+    
+    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+      <thead>
+        <tr>
+          <th style="width: 15%;">Tag equipo</th>
+          <th style="width: 10%;">Planta</th>
+          <th style="width: 15%;">Flujo</th>
+          <th style="width: 20%;">Elementos</th>
+          <th style="width: 15%;">Fecha</th>
+          <th style="width: 10%;">Hora</th>
+          <th style="width: 10%;">Offset Ingresado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <select name="tag_equipo" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" required onchange="actualizarPlantaYFlujo(this)">
+              <option value="">-- Seleccione --</option>
+              {% for tag in tags %}
+              <option value="{{tag}}" {% if tag == fila_actual['Tag equipo'] %}selected{% endif %}>{{tag}}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <input type="text" name="planta" value="{{ fila_actual['Planta'] }}" readonly style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #f0f0f0;">
+          </td>
+          <td>
+            <select name="flujo" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" required>
+              <option value="">-- Seleccione --</option>
+              {% if flujos %}
+                {% for flujo in flujos %}
+                <option value="{{flujo}}" {% if flujo == fila_actual['Flujo'] %}selected{% endif %}>{{flujo}}</option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </td>
+          <td>
+            <!-- ✅ Mostrar/Ocultar según si es Psi -->
+            <div id="divElementos" style="display: {% if not es_psi %}flex{% else %}none{% endif %}; gap: 10px; flex-wrap: wrap;">
+              {% for elem in elementos %}
+              <label style="display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" name="elementos_{{elem}}" value="1" 
+                       {% if elem in fila_actual['Elementos'] %}checked{% endif %}>
+                {{elem}}
+              </label>
+              {% endfor %}
+            </div>
+            <div id="divPsi" style="display: {% if es_psi %}block{% else %}none{% endif %}; color: #666; font-style: italic;">
+              Equipo Psi: Sin elementos, solo offset.
+            </div>
+          </td>
+          <td>
+            <select name="fecha" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" required>
+              <option value="">-- Seleccione --</option>
+              {% for fecha in fechas_semana %}
+              <option value="{{fecha}}" {% if fecha == fila_actual['Fecha'] %}selected{% endif %}>{{fecha}}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input type="text" name="hora" value="{{ fila_actual['Hora'] }}" placeholder="HH:MM" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></td>
+          <td><input type="number" step="0.01" name="offset" value="{{ fila_actual['Offset Ingresado'] }}" 
+                     {% if es_psi %}required{% endif %}  <!-- ✅ Obligatorio si es Psi -->
+                     </td>
+          <td><button type="submit" class="btn primary" style="padding: 8px 16px;">✅ {{ 'Actualizar' if edit_index is not none else 'Guardar' }} Fila</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </form>
+</div>
+
+<!-- Tabla de filas guardadas -->
+{% if filas_guardadas %}
+<div class="card">
+  <h4>📋 Ecuaciones y offsets guardados ({{ filas_guardadas|length }})</h4>
+  <div class="table-wrap">
+    <table style="width: 100%;">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Tag equipo</th>
+          <th>Planta</th>
+          <th>Flujo</th>
+          <th>Elementos</th>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Offset Ingresado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in filas_guardadas %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ fila['Tag equipo'] }}</td>
+          <td>{{ fila['Planta'] }}</td>
+          <td>{{ fila['Flujo'] }}</td>
+          <td>{{ fila['Elementos'] | join(', ') if fila['Elementos'] is iterable else fila['Elementos'] }}</td>
+          <td>{{ fila['Fecha'] }}</td>
+          <td>{{ fila['Hora'] }}</td>
+          <td>{{ fila['Offset Ingresado'] }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('offsets', year=year, week=week) }}" style="display: inline;">
+              <input type="hidden" name="action" value="edit_offset">
+              <input type="hidden" name="edit_index" value="{{ loop.index0 }}">
+              <button type="submit" class="btn" style="padding: 5px 10px; background: #3498db; color: white; font-size: 0.9em; margin-right: 5px;">✏️ Modificar</button>
+            </form>
+            <form method="POST" action="{{ url_for('offsets', year=year, week=week) }}" style="display: inline;" onsubmit="return confirm('¿Eliminar esta fila?')">
+              <input type="hidden" name="action" value="delete_offset">
+              <input type="hidden" name="delete_index" value="{{ loop.index0 }}">
+              <button type="submit" class="btn" style="padding: 5px 10px; background: #e74c3c; color: white; font-size: 0.9em;">🗑️ Eliminar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function actualizarPlantaYFlujo(selectTag) {
+    const tag = selectTag.value;
+    console.log("🔄 Tag seleccionado:", tag); // Mensaje de depuración
+
+    const plantaInput = document.querySelector('input[name="planta"]');
+    const flujoSelect = document.querySelector('select[name="flujo"]');
+    const divElementos = document.getElementById('divElementos');
+    const divPsi = document.getElementById('divPsi');
+    const offsetInput = document.querySelector('input[name="offset"]');
+    
+    // Limpiar opciones anteriores
+    flujoSelect.innerHTML = '<option value="">-- Seleccione --</option>';
+    console.log("🗑️ Opciones de flujo limpiadas."); // Mensaje de depuración
+    
+    if (!tag) {
+        plantaInput.value = '';
+        divElementos.style.display = 'flex';
+        divPsi.style.display = 'none';
+        offsetInput.required = false;
+        return;
+    }
+    
+    // Obtener información del equipo
+    const equiposDict = {{ equipos_dict | tojson }};
+    const tagInfo = equiposDict[tag] || {};
+    console.log("📄 Información del Tag:", tagInfo); // Mensaje de depuración
+
+    // Actualizar planta
+    plantaInput.value = tagInfo.Planta || '';
+    
+    // Determinar si es Psi
+    const esPsi = tagInfo.Equipo && tagInfo.Equipo.includes('Psi');
+    console.log("🔍 ¿Es equipo Psi?", esPsi); // Mensaje de depuración
+
+    // Mostrar/Ocultar elementos
+    if (esPsi) {
+        divElementos.style.display = 'none';
+        divPsi.style.display = 'block';
+        offsetInput.required = true;
+    } else {
+        divElementos.style.display = 'flex';
+        divPsi.style.display = 'none';
+        offsetInput.required = false;
+    }
+    
+    // ✅ OBTENER FLUJOS PERSONALIZADOS
+    const flujosStr = tagInfo.Flujos || "";
+    console.log("📥 Cadena de Flujos recibida:", flujosStr); // Mensaje de depuración
+
+    if (!flujosStr) {
+        console.log("⚠️ La cadena de flujos está vacía.");
+        return;
+    }
+    
+    // Procesar la cadena de flujos
+    const flujos = flujosStr.split(',').map(f => f.trim()).filter(f => f.length > 0);
+    console.log("✅ Flujos procesados:", flujos); // Mensaje de depuración
+
+    // Agregar opciones al select
+    if (flujos.length === 0) {
+        console.log("⚠️ No se generaron flujos válidos.");
+    } else {
+        flujos.forEach(flujo => {
+            const option = document.createElement('option');
+            option.value = flujo;
+            option.textContent = flujo;
+            flujoSelect.appendChild(option);
+            console.log("➕ Opción de flujo agregada:", flujo); // Mensaje de depuración
+        });
+    }
+}
+</script>
+
+{% endblock %}

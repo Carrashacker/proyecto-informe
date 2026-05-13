@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro Temperaturas Bombas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css  " rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js  "></script>
+    <!-- Agregamos SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11  "></script>
+    <!-- Agregamos Font Awesome para los iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css  ">
+    <style>
+        body { background-color: #f9f9fb; padding: 20px; }
+        .card { box-shadow: 0 3px 10px rgba(0,0,0,0.08); border: none; margin-bottom: 25px; }
+        .table thead th { background-color: #f1f3f5; font-weight: 600; }
+        .temp-input { width: 80px; text-align: center; font-size: 0.9em; }
+        .fecha-select-container { display: flex; align-items: center; justify-content: center; margin-bottom: 20px; gap: 10px; flex-wrap: wrap; }
+        .fecha-select { width: auto; display: inline-block; margin: 0 10px; min-width: 150px; }
+        .btn-accion { margin: 0 5px; }
+        .btn-export { margin-left: 20px; }
+        .obs-cell { width: 120px; text-align: center; }
+        .sin-acceso-label-header { font-weight: 600; }
+        .sin-acceso-label { font-size: 0.85em; margin-left: 5px; display: none; }
+        .acciones-container { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+        /* Estilos para el logo */
+        .logo-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000; /* Debe ser menor que el z-index de SweetAlert */
+        }
+        .logo {
+            height: 50px;
+            width: auto;
+        }
+        /* Pie de página */
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            margin-top: 40px;
+            color: #6c757d;
+            font-size: 0.9rem;
+            border-top: 1px solid #e9ecef;
+            z-index: 1000; /* Asegura visibilidad sobre SweetAlert si es necesario */
+            position: relative;
+        }
+        .footer a {
+            color: #007bff;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px; /* Espacio entre icono y texto */
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        /* Estilos para el modal de modificación de fecha */
+        .modal-header {
+            background-color: #0077b7; /* Azul LinkedIn */
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Logo Metso -->
+    <div class="logo-container">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Metso" class="logo">
+    </div>
+    <!-- Modal para modificar la fecha -->
+    <div class="modal fade" id="modificarFechaModal" tabindex="-1" aria-labelledby="modificarFechaModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modificarFechaModalLabel">Modificar Fecha</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fechaActual" class="form-label">Fecha Actual:</label>
+                        <input type="text" class="form-control" id="fechaActual" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevaFecha" class="form-label">Nueva Fecha (dd/mm/yy):</label>
+                        <input type="text" class="form-control" id="nuevaFecha" placeholder="01/01/24">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="confirmarModificacionFecha()">
+                        <i class="fas fa-save"></i> Modificar <!-- Icono de guardar en el botón de confirmación -->
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container py-4">
+        <h2 class="text-center mb-3">Registro Manual de Temperaturas - Bombas</h2>
+        <div class="fecha-select-container">
+            <label for="fechaSelect" class="form-label">Seleccionar Fecha:</label>
+            <select id="fechaSelect" class="form-select fecha-select">
+                <option value="">-- Seleccionar Fecha --</option>
+                {% for f in fechas_disponibles %}
+                    <option value="{{ f }}" {% if f == fecha_default %}selected{% endif %}>{{ f }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-primary btn-accion" onclick="cargarFechaSeleccionada()">
+                <i class="fas fa-sync-alt"></i> Cargar
+            </button>
+            <button class="btn btn-success btn-accion" onclick="nuevoRegistro()">
+                <i class="fas fa-plus"></i> Nuevo Registro
+            </button>
+            <!-- Botón para abrir el modal de modificación de fecha -->
+            <button class="btn btn-warning btn-accion" onclick="abrirModalModificacion()">
+                <i class="fas fa-edit"></i> Modificar Fecha
+            </button>
+        </div>
+        <!-- Mensajes de Retroalimentación (Ahora se usan SweetAlert) -->
+        <div id="mensajeContainer" class="text-center" style="display: none;"></div> <!-- Oculto porque SweetAlert lo reemplaza -->
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#colectiva">Planta Colectiva</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#selectiva">Planta Selectiva</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#estadisticas">Estadísticas</button>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <!-- Colectiva -->
+            <div class="tab-pane fade show active" id="colectiva">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>TAG</th>
+                                        <th>Ubicación</th>
+                                        <th>Lado Bomba (°C)</th>
+                                        <th>Lado Polea (°C)</th>
+                                        <th>Lado bomba (°C)</th>
+                                        <th>Lado Polea (°C)</th>
+                                        <th class="obs-cell"><span class="sin-acceso-label-header">Sin acceso</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for b in bombas.colectiva %}
+                                        {% set i = loop.index0 %}
+                                        <tr>
+                                            <td>{{ b.tag }}</td>
+                                            <td>{{ b.ubicacion }}</td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v1_colectiva_{{ i }}"></td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v2_colectiva_{{ i }}"></td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v3_colectiva_{{ i }}"></td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v4_colectiva_{{ i }}"></td>
+                                            <td class="obs-cell">
+                                                <div class="form-check">
+                                                    <input class="form-check-input sin-acceso" type="checkbox" id="sin_acceso_colectiva_{{ i }}" onchange="toggleTemp('colectiva', {{ i }})">
+                                                    <label class="form-check-label sin-acceso-label" for="sin_acceso_colectiva_{{ i }}">Sin acceso</label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                         <!-- Acciones: Guardar, Eliminar, Exportar -->
+                         <div class="acciones-container">
+                            <div>
+                                <button class="btn btn-success" onclick="guardar('colectiva')">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                                <button class="btn btn-danger btn-accion" onclick="eliminarFecha()">
+                                    <i class="fas fa-trash-alt"></i> Eliminar
+                                </button>
+                            </div>
+                            <button class="btn btn-primary btn-export" onclick="exportar('colectiva')">
+                                <i class="fas fa-file-export"></i> Exportar a Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Selectiva -->
+            <div class="tab-pane fade" id="selectiva">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>TAG</th>
+                                        <th>Ubicación</th>
+                                        <th>Lado Libre (°C)</th>
+                                        <th>Lado Polea (°C)</th>
+                                        <th>Lado bomba (°C)</th>
+                                        <th>Lado Polea (°C)</th>
+                                        <th class="obs-cell"><span class="sin-acceso-label-header">Sin acceso</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for b in bombas.selectiva %}
+                                        {% set i = loop.index0 %}
+                                        <tr>
+                                            <td>{{ b.tag }}</td>
+                                            <td>{{ b.ubicacion }}</td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v1_selectiva_{{ i }}" placeholder=""></td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v2_selectiva_{{ i }}"></td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v3_selectiva_{{ i }}"></td>
+                                            <td><input type="text" class="form-control form-control-sm temp-input" id="v4_selectiva_{{ i }}"></td>
+                                            <td class="obs-cell">
+                                                <div class="form-check">
+                                                    <input class="form-check-input sin-acceso" type="checkbox" id="sin_acceso_selectiva_{{ i }}" onchange="toggleTemp('selectiva', {{ i }})">
+                                                    <label class="form-check-label sin-acceso-label" for="sin_acceso_selectiva_{{ i }}">Sin acceso</label>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                         <!-- Acciones: Guardar, Eliminar, Exportar -->
+                         <div class="acciones-container">
+                            <div>
+                                <button class="btn btn-success" onclick="guardar('selectiva')">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                                <button class="btn btn-danger btn-accion" onclick="eliminarFecha()">
+                                    <i class="fas fa-trash-alt"></i> Eliminar
+                                </button>
+                            </div>
+                            <button class="btn btn-primary btn-export" onclick="exportar('selectiva')">
+                                <i class="fas fa-file-export"></i> Exportar a Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Estadísticas -->
+            <div class="tab-pane fade" id="estadisticas">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="mb-4">Tendencias de Temperaturas</h5>
+                        <!-- Gráfico Colectiva -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="bombaColectivaSelect" class="form-label mb-0">Planta Colectiva:</label>
+                                <select id="bombaColectivaSelect" class="form-select" style="width: auto; max-width: 300px;" onchange="cargarGrafico('colectiva')">
+                                    <option value="">-- Seleccionar Bomba --</option>
+                                    {% for b in bombas.colectiva %}
+                                        <option value="{{ b.tag }}">{{ b.tag }} - {{ b.ubicacion }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <canvas id="graficoColectiva" height="100"></canvas>
+                        </div>
+                        <!-- Gráfico Selectiva -->
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="bombaSelectivaSelect" class="form-label mb-0">Planta Selectiva:</label>
+                                <select id="bombaSelectivaSelect" class="form-select" style="width: auto; max-width: 300px;" onchange="cargarGrafico('selectiva')">
+                                    <option value="">-- Seleccionar Bomba --</option>
+                                    {% for b in bombas.selectiva %}
+                                        <option value="{{ b.tag }}">{{ b.tag }} - {{ b.ubicacion }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <canvas id="graficoSelectiva" height="100"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Pie de página -->
+        <div class="footer">
+            <p>Powered by <strong>Robinson Carrasco Veliz</strong></p>
+            <p>Fono: 984470261 | 
+            <a href="https://www.linkedin.com/in/robinson-carrasco-veliz-9286ba87/  " target="_blank">
+                <i class="fab fa-linkedin"></i> LinkedIn
+            </a>
+            </p>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js  "></script>
+    <script>
+        // Variables globales
+        const BOMBAS = {{ bombas | tojson }};
+        const FECHA_DEFAULT = "{{ fecha_default }}";
+        const FECHAS_DISPONIBLES = {{ fechas_disponibles | tojson }};
+        // Gráficos
+        let graficoColectiva = null;
+        let graficoSelectiva = null;
+        document.addEventListener('DOMContentLoaded', function() {
+            // Si hay una fecha por defecto, intentar cargarla
+            if (FECHA_DEFAULT && FECHAS_DISPONIBLES.includes(FECHA_DEFAULT)) {
+                document.getElementById('fechaSelect').value = FECHA_DEFAULT;
+                // Opcional: cargar automáticamente los datos
+                // cargarFechaSeleccionada();
+            }
+        });
+        // --- FUNCIONES DE MENSAJES ---
+        function mostrarMensaje(mensaje, esExito = true) {
+            // Esta función ahora usa SweetAlert
+            Swal.fire({
+                title: esExito ? 'Éxito' : 'Error',
+                text: mensaje,
+                icon: esExito ? 'success' : 'error',
+                confirmButtonText: 'Aceptar',
+                timer: 3000, // Se cierra automáticamente en 3 segundos
+                timerProgressBar: true,
+                showConfirmButton: false
+            });
+        }
+        // --- FUNCIONES PRINCIPALES ---
+        function toggleTemp(planta, i) {
+            const checked = document.getElementById(`sin_acceso_${planta}_${i}`).checked;
+            for (let j = 1; j <= 4; j++) {
+                const input = document.getElementById(`v${j}_${planta}_${i}`);
+                if (input) {
+                    input.disabled = checked;
+                    if (checked) input.value = '';
+                }
+            }
+        }
+        function cargarFechaSeleccionada() {
+            const fechaSeleccionada = document.getElementById('fechaSelect').value;
+            if (!fechaSeleccionada) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Seleccione una fecha.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                // Limpiar campos si no hay fecha
+                document.querySelectorAll('.temp-input, .sin-acceso').forEach(el => {
+                    el.disabled = false;
+                    if (el.type === 'checkbox') el.checked = false;
+                    else el.value = '';
+                });
+                return;
+            }
+            // Parsear la fecha seleccionada dd/mm/yy
+            const partes = fechaSeleccionada.split('/');
+            if (partes.length !== 3) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Formato de fecha inválido en el selector.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                 return;
+            }
+            const dia = partes[0];
+            const mes = partes[1];
+            const ano = partes[2];
+            const formData = new FormData();
+            formData.append('dia', dia);
+            formData.append('mes', mes);
+            formData.append('ano', ano);
+            fetch('/cargar', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    Swal.fire({
+                        title: 'Error',
+                        text: '❌ ' + data.error,
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    return;
+                }
+                // Limpiar todas las entradas
+                document.querySelectorAll('.temp-input, .sin-acceso').forEach(el => {
+                    el.disabled = false;
+                    if (el.type === 'checkbox') el.checked = false;
+                    else el.value = '';
+                });
+                // Cargar datos recibidos (siempre todas las bombas, en el mismo orden que el HTML)
+                for (const planta of ['colectiva', 'selectiva']) {
+                    const bombas = data[planta];
+                    for (let i = 0; i < BOMBAS[planta].length; i++) {
+                        const tag = BOMBAS[planta][i].tag;
+                        const [v1, v2, v3, v4, obs] = bombas[tag] || ["", "", "", "", ""];
+                        // Establecer valores directamente por índice
+                        document.getElementById(`v1_${planta}_${i}`).value = v1 || "";
+                        document.getElementById(`v2_${planta}_${i}`).value = v2 || "";
+                        document.getElementById(`v3_${planta}_${i}`).value = v3 || "";
+                        document.getElementById(`v4_${planta}_${i}`).value = v4 || "";
+                        // Manejar "Sin acceso"
+                        const sinAccesoCheckbox = document.getElementById(`sin_acceso_${planta}_${i}`);
+                        if (obs === "Sin acceso") {
+                            sinAccesoCheckbox.checked = true;
+                            toggleTemp(planta, i);
+                        } else {
+                            sinAccesoCheckbox.checked = false;
+                        }
+                    }
+                }
+                // Opcional: Mensaje de éxito al cargar
+                // mostrarMensaje("Datos cargados correctamente.");
+            })
+            .catch(err => {
+                console.error("Error de red:", err);
+                Swal.fire({
+                    title: 'Error de conexión',
+                    text: 'Error: ' + err.message,
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+            });
+        }
+        function validarTemp(valor, esSelectiva = false, esMotor = false) {
+            if (valor === "") return true;
+            if (esSelectiva && esMotor && valor === "Fuera de servicio") return true;
+            const num = parseFloat(valor.replace(',', '.'));
+            return !isNaN(num) && num >= 0 && num <= 100;
+        }
+        function guardar(planta) {
+            const fechaSeleccionada = document.getElementById('fechaSelect').value;
+            if (!fechaSeleccionada) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Seleccione una fecha antes de guardar.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            // Parsear la fecha dd/mm/yy
+            const partes = fechaSeleccionada.split('/');
+            if (partes.length !== 3) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Formato de fecha inválido en el selector.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                 return;
+            }
+            const dia = partes[0];
+            const mes = partes[1];
+            const ano = partes[2];
+            const inputs = document.querySelectorAll(`#${planta} .temp-input`);
+            const checkboxes = document.querySelectorAll(`#${planta} .sin-acceso`);
+            let errores = [];
+            inputs.forEach((input, idx) => {
+                const id = input.id;
+                const valor = input.value;
+                const esMotor = id.startsWith('v1_');
+                const tag = input.closest('tr').querySelector('td').textContent;
+                const sinAcceso = checkboxes[idx]?.checked;
+                if (!sinAcceso && !validarTemp(valor, planta === 'selectiva', esMotor)) {
+                    errores.push(`${tag}`);
+                }
+            });
+            if (errores.length > 0) {
+                Swal.fire({
+                    title: 'Error de validación',
+                    html: '⚠️ <strong>Temperatura fuera de rango (0–100°C)</strong><br><br>Bombas con error:<br><ul><li>' + errores.join('</li><li>') + '</li></ul>' +
+                          '<br>En Selectiva, solo el primer campo acepta \'Fuera de servicio\'.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            const formData = new FormData();
+            formData.append('planta', planta);
+            formData.append('dia', dia);
+            formData.append('mes', mes);
+            formData.append('ano', ano);
+            inputs.forEach(input => {
+                formData.append(input.id, input.value);
+            });
+            checkboxes.forEach((chk, i) => {
+                formData.append(`sin_acceso_${planta}_${i}`, chk.checked ? 'on' : '');
+            });
+            fetch('/guardar', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    mostrarMensaje("✅ Registros guardados correctamente.");
+                    // Opcional: Recargar los datos guardados
+                    // cargarFechaSeleccionada();
+                } else {
+                    mostrarMensaje("❌ Error: " + (data.error || "Desconocido"), false);
+                }
+            })
+            .catch(err => {
+                mostrarMensaje("Error de conexión: " + err, false);
+            });
+        }
+        // --- NUEVA FUNCIÓN: nuevoRegistro ---
+        function nuevoRegistro() {
+            fetch('/nuevo_registro', {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    const selectElement = document.getElementById('fechaSelect');
+                    const fechaNueva = data.fecha_nueva;
+                    // Verificar si la fecha ya está en el selector
+                    let optionExists = false;
+                    for (let i = 0; i < selectElement.options.length; i++) {
+                        if (selectElement.options[i].value === fechaNueva) {
+                            optionExists = true;
+                            break;
+                        }
+                    }
+                    // Si no existe, agregarla al principio de las opciones (después de "-- Seleccionar Fecha --")
+                    if (!optionExists) {
+                        const newOption = new Option(fechaNueva, fechaNueva);
+                        // Insertar después de la primera opción (-- Seleccionar Fecha --)
+                        selectElement.insertBefore(newOption, selectElement.options[1]);
+                    }
+                    // Seleccionar la fecha nueva
+                    selectElement.value = fechaNueva;
+                    // Limpiar todos los campos de entrada
+                    document.querySelectorAll('.temp-input, .sin-acceso').forEach(el => {
+                        if (el.type === 'checkbox') {
+                            el.checked = false;
+                        } else {
+                            el.value = '';
+                        }
+                        el.disabled = false;
+                    });
+                    let mensaje = `✅ Preparado para nuevo registro en la fecha ${fechaNueva}.`;
+                    if (data.existe_en_bd) {
+                        mensaje += " (Ya existían datos para esta fecha)";
+                    }
+                    mostrarMensaje(mensaje);
+                } else {
+                    mostrarMensaje("❌ Error al preparar nuevo registro: " + (data.error || "Desconocido"), false);
+                }
+            })
+            .catch(err => {
+                mostrarMensaje("Error de conexión: " + err, false);
+            });
+        }
+        // --- FIN NUEVA FUNCIÓN ---
+        // --- NUEVA FUNCIÓN: eliminarFecha (para cada planta, pero elimina toda la fecha) ---
+        function eliminarFecha() {
+            const fechaSeleccionada = document.getElementById('fechaSelect').value;
+            if (!fechaSeleccionada) {
+                mostrarMensaje("Seleccione una fecha para eliminar.", false);
+                return;
+            }
+            // Confirmación específica para la acción usando SweetAlert
+            Swal.fire({
+                title: '¿Está seguro?',
+                text: `¿Está seguro de que desea ELIMINAR TODOS LOS REGISTROS de la fecha ${fechaSeleccionada}? Esta acción no se puede deshacer.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (!result.isConfirmed) {
+                    return; // Salir si el usuario cancela
+                }
+                // Parsear la fecha dd/mm/yy
+                const partes = fechaSeleccionada.split('/');
+                if (partes.length !== 3) {
+                    mostrarMensaje("Formato de fecha inválido.", false);
+                    return;
+                }
+                const dia = partes[0];
+                const mes = partes[1];
+                const ano = partes[2];
+                const formData = new FormData();
+                formData.append('dia', dia);
+                formData.append('mes', mes);
+                formData.append('ano', ano);
+                fetch('/eliminar_fecha', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarMensaje(data.message || "✅ Fecha eliminada correctamente.");
+                        // Limpiar campos de entrada
+                        document.querySelectorAll('.temp-input, .sin-acceso').forEach(el => {
+                            if (el.type === 'checkbox') el.checked = false;
+                            else el.value = '';
+                            el.disabled = false;
+                        });
+                        // Lógica para manejar la eliminación de la fecha del selector
+                        // Basada en la respuesta del servidor
+                        if (!data.era_fecha_de_hoy) {
+                            // Si NO era la fecha de hoy, eliminarla del selector
+                            const selectElement = document.getElementById('fechaSelect');
+                            const optionToRemove = selectElement.querySelector(`option[value="${data.fecha_eliminada}"]`);
+                            if (optionToRemove) {
+                                optionToRemove.remove();
+                                // Opcional: Seleccionar la primera opción disponible o resetear el selector
+                                selectElement.selectedIndex = 0; // Esto seleccionará "-- Seleccionar Fecha --"
+                            }
+                        }
+                        // Si era la fecha de hoy, no hacemos nada con el selector, la fecha permanece.
+                    } else {
+                        mostrarMensaje("❌ Error al eliminar: " + (data.error || "Desconocido"), false);
+                    }
+                })
+                .catch(err => {
+                    mostrarMensaje("Error de conexión: " + err, false);
+                });
+            });
+        }
+        // --- FIN NUEVA FUNCIÓN ---
+        function exportar(planta) {
+            const fechaSeleccionada = document.getElementById('fechaSelect').value;
+            if (!fechaSeleccionada) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Seleccione una fecha antes de exportar.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            // Parsear la fecha dd/mm/yy
+            const partes = fechaSeleccionada.split('/');
+            if (partes.length !== 3) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Formato de fecha inválido en el selector.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                 return;
+            }
+            const dia = partes[0];
+            const mes = partes[1];
+            const ano = partes[2];
+            // --- CORRECCIÓN: Seleccionar inputs y checkboxes específicos de la planta ---
+            const inputs = document.querySelectorAll(`#${planta} .temp-input`);
+            const checkboxes = document.querySelectorAll(`#${planta} .sin-acceso`);
+            // --- FIN CORRECCIÓN ---
+            let errores = [];
+            // --- CORRECCIÓN: Iterar solo sobre los elementos de la planta correcta ---
+            inputs.forEach((input, idx) => {
+                const id = input.id;
+                const valor = input.value;
+                const esMotor = id.startsWith(`v1_${planta}_`); // Verificar que sea el primer campo de la planta específica
+                const tag = input.closest('tr').querySelector('td').textContent;
+                const sinAcceso = checkboxes[idx]?.checked; // Usar el checkbox correspondiente
+                if (!sinAcceso && !validarTemp(valor, planta === 'selectiva', esMotor)) {
+                    errores.push(`${tag}`);
+                }
+            });
+            // --- FIN CORRECCIÓN ---
+            if (errores.length > 0) {
+                Swal.fire({
+                    title: 'Error de validación',
+                    html: '⚠️ <strong>Temperatura fuera de rango (0–100°C)</strong><br><br>Bombas con error:<br><ul><li>' + errores.join('</li><li>') + '</li></ul>',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            const formData = new FormData();
+            formData.append('planta', planta);
+            formData.append('dia', dia);
+            formData.append('mes', mes);
+            formData.append('ano', ano);
+            // --- CORRECCIÓN: Agregar datos de la planta específica ---
+            inputs.forEach((input, idx) => {
+                formData.append(input.id, input.value);
+            });
+            checkboxes.forEach((chk, idx) => { // Asegurar consistencia en el índice
+                formData.append(`sin_acceso_${planta}_${idx}`, chk.checked ? 'on' : '');
+            });
+            // --- FIN CORRECCIÓN ---
+            fetch('/exportar', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar mensaje de éxito con opción de descarga
+                    Swal.fire({
+                        title: 'Exportación exitosa',
+                        text: 'Archivo exportado correctamente. ¿Desea descargar una copia?',
+                        icon: 'success',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, descargar',
+                        cancelButtonText: 'No'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Si el usuario confirma, iniciar la descarga
+                            const archivo = data.archivo; // Obtener el nombre del archivo desde la respuesta
+                            window.location.href = `/descargar/${encodeURIComponent(archivo)}`;
+                        }
+                    });
+                } else {
+                    mostrarMensaje("❌ Error al exportar: " + (data.error || "Desconocido"), false);
+                }
+            })
+            .catch(err => {
+                mostrarMensaje("Error de conexión: " + err, false);
+            });
+        }
+        // --- ESTADÍSTICAS ---
+        function cargarGrafico(planta) {
+            const selectId = planta === 'colectiva' ? 'bombaColectivaSelect' : 'bombaSelectivaSelect';
+            const tag = document.getElementById(selectId).value;
+            if (!tag) {
+                // No mostrar alerta si no se ha seleccionado nada aún (valor por defecto "")
+                if (selectId === 'bombaColectivaSelect') {
+                    if (graficoColectiva) {
+                        graficoColectiva.destroy();
+                        graficoColectiva = null;
+                    }
+                } else {
+                    if (graficoSelectiva) {
+                        graficoSelectiva.destroy();
+                        graficoSelectiva = null;
+                    }
+                }
+                return;
+            }
+            // Mostrar un loader o mensaje mientras carga
+            const canvasId = planta === 'colectiva' ? 'graficoColectiva' : 'graficoSelectiva';
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            // Destruir gráfico anterior si existe
+            const graficoActual = planta === 'colectiva' ? graficoColectiva : graficoSelectiva;
+            if (graficoActual) {
+                graficoActual.destroy();
+            }
+            // Hacer la solicitud de datos
+            fetch(`/estadisticas_datos?planta=${planta}&tag=${encodeURIComponent(tag)}`)
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error(`Error HTTP! status: ${res.status}`);
+                }
+                return res.json();
+            })
+            .then(datos => {
+                if (datos.error) {
+                    console.error("Error en datos recibidos:", datos.error);
+                    Swal.fire({
+                        title: 'Error al cargar datos',
+                        text: 'Error: ' + datos.error,
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    return;
+                }
+                if (!Array.isArray(datos) || datos.length === 0) {
+                    // No hay datos para mostrar
+                    Swal.fire({
+                        title: 'Sin datos',
+                        text: `No hay datos históricos para la bomba ${tag}.`,
+                        icon: 'info',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    return;
+                }
+                // Procesar los datos para Chart.js
+                const fechas = datos.map(d => d.fecha);
+                const v1 = datos.map(d => d.v1);
+                const v2 = datos.map(d => d.v2);
+                const v3 = datos.map(d => d.v3);
+                const v4 = datos.map(d => d.v4);
+                // Crear el nuevo gráfico
+                const nuevoGrafico = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: fechas,
+                        datasets: [
+                            {
+                                label: 'Lado Bomba (°C)',
+                                data: v1,
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                tension: 0.1,
+                                fill: false
+                            },
+                            {
+                                label: 'Lado Polea (°C)',
+                                data: v2,
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                tension: 0.1,
+                                fill: false
+                            },
+                            {
+                                label: 'Lado bomba (°C)',
+                                data: v3,
+                                borderColor: 'rgba(255, 205, 86, 1)',
+                                backgroundColor: 'rgba(255, 205, 86, 0.2)',
+                                tension: 0.1,
+                                fill: false
+                            },
+                            {
+                                label: 'Lado Polea (°C)',
+                                data: v4,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                tension: 0.1,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Tendencia de Temperaturas - ${tag}`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+                // Guardar la referencia del nuevo gráfico
+                if (planta === 'colectiva') {
+                    graficoColectiva = nuevoGrafico;
+                } else {
+                    graficoSelectiva = nuevoGrafico;
+                }
+            })
+            .catch(err => {
+                console.error("Error al cargar datos del gráfico:", err);
+                Swal.fire({
+                    title: 'Error de conexión',
+                    text: 'Error al cargar datos del gráfico: ' + err.message,
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+            });
+        }
+        // --- NUEVAS FUNCIONES PARA MODIFICAR FECHA ---
+        function abrirModalModificacion() {
+            const fechaActual = document.getElementById('fechaSelect').value;
+            if (!fechaActual) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Seleccione una fecha para modificar.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            // Rellenar el modal con la fecha actual
+            document.getElementById('fechaActual').value = fechaActual;
+            // Limpiar el campo de nueva fecha
+            document.getElementById('nuevaFecha').value = '';
+            // Mostrar el modal
+            const modal = new bootstrap.Modal(document.getElementById('modificarFechaModal'));
+            modal.show();
+        }
+        function confirmarModificacionFecha() {
+            const fechaActual = document.getElementById('fechaActual').value;
+            const nuevaFecha = document.getElementById('nuevaFecha').value.trim();
+            // Validar formato de la nueva fecha (dd/mm/yy)
+            const regexFecha = /^\d{2}\/\d{2}\/\d{2}$/;
+            if (!regexFecha.test(nuevaFecha)) {
+                Swal.fire({
+                    title: 'Error de formato',
+                    text: 'La nueva fecha debe tener el formato dd/mm/yy (por ejemplo, 01/01/24).',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            // Confirmación antes de enviar la solicitud
+            Swal.fire({
+                title: '¿Está seguro?',
+                text: `¿Está seguro de que desea cambiar la fecha "${fechaActual}" a "${nuevaFecha}"?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#0077b7', // Azul LinkedIn
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, modificar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Parsear fechas
+                    const partesActual = fechaActual.split('/');
+                    const partesNueva = nuevaFecha.split('/');
+                    const formData = new FormData();
+                    formData.append('dia_actual', partesActual[0]);
+                    formData.append('mes_actual', partesActual[1]);
+                    formData.append('ano_actual', partesActual[2]);
+                    formData.append('dia_nuevo', partesNueva[0]);
+                    formData.append('mes_nuevo', partesNueva[1]);
+                    formData.append('ano_nuevo', partesNueva[2]);
+                    fetch('/modificar_fecha', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                title: 'Fecha modificada',
+                                text: `La fecha "${fechaActual}" ha sido modificada a "${nuevaFecha}".`,
+                                icon: 'success',
+                                confirmButtonText: 'Aceptar'
+                            }).then(() => {
+                                // Cerrar el modal
+                                const modal = bootstrap.Modal.getInstance(document.getElementById('modificarFechaModal'));
+                                modal.hide();
+                                // Actualizar el selector de fechas
+                                const selectElement = document.getElementById('fechaSelect');
+                                // Encontrar la opción actual y cambiar su valor y texto
+                                for (let i = 0; i < selectElement.options.length; i++) {
+                                    if (selectElement.options[i].value === fechaActual) {
+                                        selectElement.options[i].value = nuevaFecha;
+                                        selectElement.options[i].text = nuevaFecha;
+                                        break; // Encontrada y actualizada
+                                    }
+                                }
+                                // Opcional: Seleccionar la nueva fecha
+                                selectElement.value = nuevaFecha;
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: data.error || 'Ocurrió un error desconocido.',
+                                icon: 'error',
+                                confirmButtonText: 'Aceptar'
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error de red al modificar fecha:", err);
+                        Swal.fire({
+                            title: 'Error de conexión',
+                            text: 'Error: ' + err.message,
+                            icon: 'error',
+                            confirmButtonText: 'Aceptar'
+                        });
+                    });
+                }
+            });
+        }
+        // --- FIN NUEVAS FUNCIONES ---
+    </script>
+</body>
+</html>
