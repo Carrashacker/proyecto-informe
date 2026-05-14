@@ -5,6 +5,7 @@
   "description": "Sistema local para informes semanales de mantencion Metso.",
   "main": "server.js",
   "scripts": {
+    "build": "node --check server.js && node --check app.js && node --check activity-tag-selector.js",
     "start": "node server.js",
     "check": "node --check server.js && node --check app.js && node --check activity-tag-selector.js"
   },
