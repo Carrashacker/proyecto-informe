@@ -1029,8 +1029,10 @@ app.put("/api/db-upload", express.raw({ type: "*/*", limit: "200mb" }), (req, re
   try {
     let buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || "");
     if (buf.length < 1024) return res.status(400).json({ error: "Archivo muy pequeno o vacio" });
-    if (req.headers["content-encoding"] === "gzip") {
-      buf = zlib.gunzipSync(buf);
+    if (buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b) {
+      try { buf = zlib.gunzipSync(buf); } catch (e) {
+        return res.status(400).json({ error: "Error de descompresion gzip: " + e.message });
+      }
     }
     const backup = dbPath + ".bak";
     try { fs.copyFileSync(dbPath, backup); } catch {}
