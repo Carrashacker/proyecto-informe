@@ -3253,6 +3253,21 @@ loginForm.onsubmit = function(e) {
           }).catch(function() { setStatus("Error al generar PDF.", ""); });
         });
       }
+      var fullReportBtn = document.getElementById("generateFullReportBtn");
+      if (fullReportBtn) {
+        fullReportBtn.addEventListener("click", function() {
+          var week = currentWeekValue();
+          setStatus("Generando informe completo...", "loading");
+          localApi("POST", "/api/report-generate-full", { week: week }).then(function(r) {
+            if (r.ok && r.data && r.data.downloadUrl) {
+              setStatus("Informe completo generado correctamente.", "");
+              window.open(r.data.downloadUrl, "_blank");
+            } else {
+              setStatus(r.data && r.data.error ? r.data.error : "Error al generar informe completo.", "");
+            }
+          }).catch(function() { setStatus("Error al generar informe completo.", ""); });
+        });
+      }
     }
     loadDashboard();
   }

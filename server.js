@@ -12,13 +12,13 @@ const port = process.env.PORT || 3000;
 function findWritableDir() {
   const candidates = [
     process.env.DATA_DIR,
+    __dirname,
+    process.env.HOME,
     process.env.XDG_DATA_HOME,
-    os.tmpdir(),
-    "/tmp",
     "/data",
     "/var/data",
-    process.env.HOME,
-    __dirname,
+    os.tmpdir(),
+    "/tmp",
   ].filter(Boolean);
   for (const dir of candidates) {
     try {
@@ -1044,6 +1044,238 @@ app.put("/api/db-upload", express.raw({ type: "*/*", limit: "200mb" }), (req, re
   } catch (e) {
     try { if (fs.existsSync(dbPath + ".bak")) fs.copyFileSync(dbPath + ".bak", dbPath); } catch {}
     try { db = new Database(dbPath, { fileMustExist: true }); db.pragma("journal_mode = WAL"); } catch {}
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/report-generate-full", (req, res) => {
+  const week = clean(req.body.week);
+  if (!week) return res.status(400).json({ error: "Semana requerida." });
+
+  try {
+    const PDFDocument = require("pdfkit");
+    const wkNum = weekNumberFromLabel(week);
+    const wkStart = operationalWeekWednesday(PLAN_OPERATIONAL_YEAR, wkNum);
+    const wkEnd = addIsoDays(wkStart, 6);
+    const year = new Date().getFullYear();
+    const reportData = buildWeeklyReport(week);
+    const planData = buildWeeklyPlan(week);
+
+    const doc = new PDFDocument({ margin: 50, size: "A4", layout: "portrait" });
+    const bufs = [];
+    doc.on("data", bufs.push.bind(bufs));
+    doc.on("end", () => {
+      const pdfData = Buffer.concat(bufs);
+      const filename = "Informe_Completo_" + week + "_" + Date.now() + ".pdf";
+      require("fs").writeFileSync(path.join(__dirname, filename), pdfData);
+      res.json({ success: true, downloadUrl: "/" + filename });
+    });
+
+    const MARGIN = 50;
+    const PAGE_W = doc.page.width;
+    const CONTENT_W = PAGE_W - MARGIN * 2;
+    const COLORS = { navy: "#0d344f", orange: "#ff6a13", text: "#1a1a1a", light: "#f0f4f8", border: "#c0ccd8", meta: "#555555" };
+    let y = MARGIN;
+
+    function addPage() { doc.addPage(); y = MARGIN; }
+
+    function headerBox(text, opts) {
+      opts = opts || {};
+      const h = opts.h || 20;
+      doc.rect(MARGIN, y, CONTENT_W, h).fill(opts.fill || COLORS.navy);
+      doc.fill(opts.textColor || "#ffffff").fontSize(opts.fontSize || 10).font("Helvetica-Bold").text(text, MARGIN + 8, y + 5, { width: CONTENT_W - 16 });
+      y += h + (opts.after || 4);
+    }
+
+    function bodyText(text, opts) {
+      opts = opts || {};
+      doc.fill(opts.color || COLORS.text).fontSize(opts.size || 9).font(opts.font || "Helvetica").text(text, MARGIN + (opts.indent || 0), y, { width: CONTENT_W - (opts.indent || 0), align: opts.align || "left", lineGap: opts.gap || 2 });
+      if (opts.noMove) return;
+      y = doc.y + (opts.after || 4);
+      maybePage();
+    }
+
+    function boldLabel(label, value, opts) {
+      opts = opts || {};
+      doc.fontSize(opts.size || 9).font("Helvetica-Bold").fillColor(opts.labelColor || COLORS.navy).text(label, MARGIN + (opts.indent || 0), y, { continued: true, width: CONTENT_W });
+      doc.font("Helvetica").fillColor(opts.valueColor || COLORS.text).text(" " + (value || ""), { width: CONTENT_W });
+      y = doc.y + (opts.after || 3);
+      maybePage();
+    }
+
+    function maybePage() { if (y > doc.page.height - 80) addPage(); }
+
+    function drawLine(color) { doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor(color || COLORS.border).lineWidth(0.5).stroke(); y += 10; maybePage(); }
+
+    function maintenanceBlock(maintList) {
+      if (!maintList || !maintList.length) { bodyText("No se registran actividades de mantención durante la semana.", { color: COLORS.meta }); return; }
+      maintList.forEach(function(m) {
+        maybePage();
+        boldLabel("Equipo:", m.equipment + "  |  TAG: " + m.tag, { size: 9.5, labelColor: COLORS.navy });
+        boldLabel("Fecha:", m.date || "Sin fecha", { indent: 12 });
+        boldLabel("OT:", m.workOrder || m.defaultOt || "Sin OT", { indent: 12 });
+        bodyText("Descripción: " + m.description, { indent: 12, color: COLORS.text });
+        if (m.completed) bodyText("  ✅ Trabajo completado", { indent: 12, color: "#15803d", after: 2 });
+        bodyText("", { after: 2 });
+        drawLine(COLORS.border);
+      });
+    }
+
+    function activityBlock(acts, label) {
+      if (!acts || !acts.length) { bodyText("No se realizan actividades de " + label + " durante la semana.", { color: COLORS.meta, after: 6 }); return; }
+      acts.forEach(function(a) {
+        maybePage();
+        boldLabel("Equipo:", a.equipment || "N/E", { size: 9.5 });
+        boldLabel("TAG:", a.tag || "N/E", { indent: 12 });
+        boldLabel("Fecha:", a.date || "Sin fecha", { indent: 12 });
+        if (a.workOrder) boldLabel("OT:", a.workOrder, { indent: 12 });
+        if (a.workOrderSgscm) boldLabel("OT SGSCM:", a.workOrderSgscm, { indent: 12 });
+        bodyText("Actividad realizada: " + a.description, { indent: 12 });
+        bodyText("", { after: 2 });
+        drawLine(COLORS.border);
+      });
+    }
+
+    function equationBlock(equations, plantLabel) {
+      if (!equations || !equations.length) { bodyText("No se registran calibraciones de flujos para " + plantLabel + ".", { color: COLORS.meta, after: 6 }); return; }
+      equations.forEach(function(eq) {
+        maybePage();
+        boldLabel("Flujo:", eq.flow || "N/E", { size: 9.5 });
+        boldLabel("TAG:", eq.tag || eq.tagKey || "N/E", { indent: 12 });
+        boldLabel("Fecha:", eq.date + " " + (eq.time || ""), { indent: 12 });
+        var els = [];
+        try { els = JSON.parse(eq.elements || "[]"); } catch {}
+        var detail = eq.is_psi ? "Offset: " + (eq.offset || "N/E") : "Elementos: " + els.join(", ");
+        bodyText(detail, { indent: 12 });
+        bodyText("", { after: 2 });
+        drawLine(COLORS.border);
+      });
+    }
+
+    function aforoBlock(plantAforoData) {
+      var keys = plantAforoData ? Object.keys(plantAforoData).filter(function(k) { return k !== "meta"; }) : [];
+      if (!keys.length) { bodyText("No se registran aforos.", { color: COLORS.meta, after: 6 }); return; }
+      keys.forEach(function(key) {
+        var d = plantAforoData[key] || {};
+        maybePage();
+        boldLabel("Punto:", key, { size: 9.5 });
+        if (d.muestra1 !== undefined) boldLabel("Muestras:", [d.muestra1, d.muestra2, d.muestra3].filter(Boolean).join(", "), { indent: 12 });
+        if (d.litros) boldLabel("Litros:", String(d.litros), { indent: 12 });
+        bodyText("", { after: 2 });
+        drawLine(COLORS.border);
+      });
+    }
+
+    function thermoSection(planta) {
+      var thermoDates = db.prepare("SELECT DISTINCT fecha FROM thermography_records WHERE planta = ?").all(planta).map(function(r) { return r.fecha; });
+      if (!thermoDates.length) { bodyText("No se registran termografías para la semana.", { color: COLORS.meta, after: 6 }); return; }
+      thermoDates.forEach(function(fecha) {
+        maybePage();
+        var rows = db.prepare("SELECT * FROM thermography_records WHERE planta = ? AND fecha = ?").all(planta, fecha);
+        headerBox("TERMOGRAFÍA " + fecha, { fill: COLORS.navy, h: 18, fontSize: 8, after: 4 });
+        rows.forEach(function(row, i) {
+          var temps = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).join(" / ");
+          var avg = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).reduce(function(s, v) { return s + Number(v); }, 0);
+          var count = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).length;
+          bodyText(row.tag + " — " + (row.ubicacion || "") + " | " + (temps || "Sin acceso") + (avg && count ? " | Prom: " + (avg / count).toFixed(1) + "°C" : ""), { indent: 8, size: 8.5, after: 2 });
+        });
+        bodyText("", { after: 4 });
+      });
+    }
+
+    /* ===== PORTADA ===== */
+    doc.fontSize(22).font("Helvetica-Bold").fillColor(COLORS.navy).text("INFORME SEMANAL", MARGIN, y, { align: "center", width: CONTENT_W });
+    y = doc.y + 2;
+    doc.fontSize(16).font("Helvetica-Bold").fillColor(COLORS.orange).text("TRABAJOS MANTENCIÓN METSO", MARGIN, y, { align: "center", width: CONTENT_W });
+    y = doc.y + 8;
+    doc.fontSize(13).font("Helvetica-Bold").fillColor(COLORS.navy).text("SEMANA " + week + "  |  AÑO " + year, MARGIN, y, { align: "center", width: CONTENT_W });
+    y = doc.y + 20;
+    drawLine(COLORS.orange);
+    doc.fontSize(9).font("Helvetica").fillColor(COLORS.meta).text("CONTRATO N°: CW2276359", MARGIN, y, { align: "center", width: CONTENT_W });
+    y = doc.y + 4;
+    doc.text("(M-PRO-MANT-" + week.replace("W-", "") + ")", MARGIN, y, { align: "center", width: CONTENT_W });
+    y += 20;
+    doc.rect(MARGIN, y, CONTENT_W, 1).fill(COLORS.navy);
+    y += 16;
+
+    var userMeta = reportData.meta || {};
+    var author = userMeta.responsible || userMeta.createdBy || "Administrador";
+    var authorRows = [
+      ["ELABORADO POR:", author],
+      ["CARGO:", "Supervisor"],
+      ["APROBADO POR:", "Uriel Elizondo Marambio"],
+      ["CARGO:", "Líder de Servicio"],
+      ["PARA:", "Hernán Ponce Reyes"],
+      ["CARGO:", "Administrador de contrato SGSCM"],
+      ["EMPRESA:", "Sierra Gorda SCM"],
+      ["SUPERINTENDENCIA:", "Metalurgia"],
+    ];
+    doc.fontSize(9).font("Helvetica");
+    authorRows.forEach(function(row) {
+      doc.fillColor(COLORS.navy).font("Helvetica-Bold").text(row[0], MARGIN + 60, y, { continued: true, width: 120 });
+      doc.fillColor(COLORS.text).font("Helvetica").text(row[1], { width: CONTENT_W - 180 });
+      y = doc.y + 3;
+    });
+    y += 16;
+    drawLine(COLORS.navy);
+
+    /* ===== PLANTA SELECTIVA ===== */
+    addPage();
+    headerBox("1.  TRABAJOS PLANTA SELECTIVA", { h: 22, fontSize: 11 });
+
+    var selData = reportData.plants.selectiva || emptyPlant();
+
+    headerBox("1.1  MANTENCIÓN DE EQUIPOS", { h: 18, fontSize: 9 });
+    maintenanceBlock(selData.maintenance);
+
+    headerBox("1.2  ACTIVIDADES EMERGENTES", { h: 18, fontSize: 9 });
+    activityBlock(selData.emergencies, "emergentes");
+
+    headerBox("1.3  ACTIVIDADES DE MEJORA", { h: 18, fontSize: 9 });
+    activityBlock(selData.improvements, "mejora");
+
+    var equationsSelectiva = db.prepare("SELECT * FROM equation_offset_records WHERE week = ? AND plant = ? ORDER BY date DESC, time DESC").all(week, "selectiva");
+    headerBox("1.4  CALIBRACIÓN DE FLUJOS", { h: 18, fontSize: 9 });
+    equationBlock(equationsSelectiva, "Selectiva");
+
+    headerBox("1.5  TERMOGRAFÍA BOMBAS DE IMPULSIÓN", { h: 18, fontSize: 9 });
+    thermoSection("selectiva");
+
+    /* ===== PLANTA COLECTIVA ===== */
+    addPage();
+    headerBox("2.  TRABAJOS PLANTA COLECTIVA", { h: 22, fontSize: 11 });
+
+    var colData = reportData.plants.colectiva || emptyPlant();
+
+    headerBox("2.1  MANTENCIÓN DE EQUIPOS", { h: 18, fontSize: 9 });
+    maintenanceBlock(colData.maintenance);
+
+    headerBox("2.2  ACTIVIDADES EMERGENTES", { h: 18, fontSize: 9 });
+    activityBlock(colData.emergencies, "emergentes");
+
+    headerBox("2.3  ACTIVIDADES DE MEJORA", { h: 18, fontSize: 9 });
+    activityBlock(colData.improvements, "mejora");
+
+    var equationsColectiva = db.prepare("SELECT * FROM equation_offset_records WHERE week = ? AND plant = ? ORDER BY date DESC, time DESC").all(week, "colectiva");
+    headerBox("2.4  CALIBRACIÓN DE FLUJOS", { h: 18, fontSize: 9 });
+    equationBlock(equationsColectiva, "Colectiva");
+
+    headerBox("2.5  AFORO DE MUESTRAS COMPOSITO", { h: 18, fontSize: 9 });
+    var aforoRow = db.prepare("SELECT data FROM aforo_records WHERE week = ?").get(week);
+    var aforoData = safeObjectJson(aforoRow?.data);
+    aforoBlock(aforoData);
+
+    headerBox("2.6  TERMOGRAFÍA BOMBAS DE IMPULSIÓN", { h: 18, fontSize: 9 });
+    thermoSection("colectiva");
+
+    /* ===== FOOTER ===== */
+    addPage();
+    bodyText("— FIN DEL INFORME —", { align: "center", size: 10, color: COLORS.navy, after: 10 });
+    var generatedDate = new Date().toLocaleDateString("es-CL", { year: "numeric", month: "long", day: "numeric" });
+    bodyText("Generado el " + generatedDate + " por Sistema de Informes Metso", { align: "center", size: 8, color: COLORS.meta });
+
+    doc.end();
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
