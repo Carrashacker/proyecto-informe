@@ -1166,22 +1166,24 @@ app.post("/api/report-generate-full", (req, res) => {
       });
     }
 
-    function thermoSection(planta) {
-      var thermoDates = db.prepare("SELECT DISTINCT fecha FROM thermography_records WHERE planta = ?").all(planta).map(function(r) { return r.fecha; });
-      if (!thermoDates.length) { bodyText("No se registran termografías para la semana.", { color: COLORS.meta, after: 6 }); return; }
-      thermoDates.forEach(function(fecha) {
-        maybePage();
-        var rows = db.prepare("SELECT * FROM thermography_records WHERE planta = ? AND fecha = ?").all(planta, fecha);
-        headerBox("TERMOGRAFÍA " + fecha, { fill: COLORS.navy, h: 18, fontSize: 8, after: 4 });
-        rows.forEach(function(row, i) {
-          var temps = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).join(" / ");
-          var avg = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).reduce(function(s, v) { return s + Number(v); }, 0);
-          var count = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).length;
-          bodyText(row.tag + " — " + (row.ubicacion || "") + " | " + (temps || "Sin acceso") + (avg && count ? " | Prom: " + (avg / count).toFixed(1) + "°C" : ""), { indent: 8, size: 8.5, after: 2 });
-        });
-        bodyText("", { after: 4 });
-      });
-    }
+     function thermoSection(planta) {
+       var allDates = db.prepare("SELECT DISTINCT fecha FROM thermography_records WHERE planta = ?").all(planta).map(function(r) { return r.fecha; });
+       var thermoDates = allDates.filter(function(f) { var iso = shortDateToIso(f); return iso && iso >= wkStart && iso <= wkEnd; });
+       bodyText("Termografías correspondientes a la semana " + week + " (" + formatIsoDate(wkStart) + " al " + formatIsoDate(wkEnd) + ")", { color: COLORS.meta, size: 8, after: 6 });
+       if (!thermoDates.length) { bodyText("No se registran termografías para la semana.", { color: COLORS.meta, after: 6 }); return; }
+       thermoDates.forEach(function(fecha) {
+         maybePage();
+         var rows = db.prepare("SELECT * FROM thermography_records WHERE planta = ? AND fecha = ?").all(planta, fecha);
+         headerBox("TERMOGRAFÍA " + fecha, { fill: COLORS.navy, h: 18, fontSize: 8, after: 4 });
+         rows.forEach(function(row) {
+           var temps = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).join(" / ");
+           var avg = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).reduce(function(s, v) { return s + Number(v); }, 0);
+           var count = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).length;
+           bodyText(row.tag + " — " + (row.ubicacion || "") + " | " + (temps || "Sin acceso") + (avg && count ? " | Prom: " + (avg / count).toFixed(1) + "°C" : ""), { indent: 8, size: 8.5, after: 2 });
+         });
+         bodyText("", { after: 4 });
+       });
+     }
 
     /* ===== PORTADA ===== */
     doc.fontSize(22).font("Helvetica-Bold").fillColor(COLORS.navy).text("INFORME SEMANAL", MARGIN, y, { align: "center", width: CONTENT_W });
