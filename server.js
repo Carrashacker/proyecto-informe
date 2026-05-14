@@ -6,7 +6,28 @@ const Database = require("better-sqlite3");
 
 const app = express();
 const port = process.env.PORT || 3000;
-const dataDir = process.env.DATA_DIR || __dirname;
+
+function findWritableDir() {
+  const candidates = [
+    process.env.DATA_DIR,
+    process.env.HOME,
+    "/data",
+    "/var/data",
+    "/tmp",
+    __dirname,
+  ].filter(Boolean);
+  for (const dir of candidates) {
+    try {
+      const test = path.join(dir, ".write_test");
+      fs.writeFileSync(test, "");
+      fs.unlinkSync(test);
+      return dir;
+    } catch { continue; }
+  }
+  return __dirname;
+}
+
+const dataDir = findWritableDir();
 const dbPath = path.join(dataDir, "informes.db");
 const db = new Database(dbPath);
 const PLAN_OPERATIONAL_YEAR = 2026;
@@ -984,7 +1005,7 @@ app.get("/api/thermography/download/:file", (req, res) => {
 app.get("*", renderIndexWithUsers);
 
 app.listen(port, () => {
-  console.log(`Sistema de informes disponible en http://localhost:${port} (DB: ${dbPath})`);
+  console.log(`Sistema de informes disponible en http://localhost:${port} (DB: ${dbPath}, DIR: ${dataDir})`);
 });
 
 function seedTemplates() {
