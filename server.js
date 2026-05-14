@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const zlib = require("zlib");
 const { spawnSync } = require("child_process");
 const Database = require("better-sqlite3");
 
@@ -1026,8 +1027,11 @@ app.get("/api/thermography/download/:file", (req, res) => {
 
 app.put("/api/db-upload", express.raw({ type: "*/*", limit: "200mb" }), (req, res) => {
   try {
-    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || "");
+    let buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || "");
     if (buf.length < 1024) return res.status(400).json({ error: "Archivo muy pequeno o vacio" });
+    if (req.headers["content-encoding"] === "gzip") {
+      buf = zlib.gunzipSync(buf);
+    }
     const backup = dbPath + ".bak";
     try { fs.copyFileSync(dbPath, backup); } catch {}
     fs.writeFileSync(dbPath, buf);
