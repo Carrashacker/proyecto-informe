@@ -1053,230 +1053,172 @@ app.post("/api/report-generate-full", (req, res) => {
   if (!week) return res.status(400).json({ error: "Semana requerida." });
 
   try {
-    const PDFDocument = require("pdfkit");
     const wkNum = weekNumberFromLabel(week);
     const wkStart = operationalWeekWednesday(PLAN_OPERATIONAL_YEAR, wkNum);
     const wkEnd = addIsoDays(wkStart, 6);
     const year = new Date().getFullYear();
     const reportData = buildWeeklyReport(week);
-    const planData = buildWeeklyPlan(week);
 
-    const doc = new PDFDocument({ margin: 50, size: "A4", layout: "portrait" });
-    const bufs = [];
-    doc.on("data", bufs.push.bind(bufs));
-    doc.on("end", () => {
-      const pdfData = Buffer.concat(bufs);
-      const filename = "Informe_Completo_" + week + "_" + Date.now() + ".pdf";
-      require("fs").writeFileSync(path.join(__dirname, filename), pdfData);
-      res.json({ success: true, downloadUrl: "/" + filename });
-    });
+    function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-    const MARGIN = 50;
-    const PAGE_W = doc.page.width;
-    const CONTENT_W = PAGE_W - MARGIN * 2;
-    const COLORS = { navy: "#0d344f", orange: "#ff6a13", text: "#1a1a1a", light: "#f0f4f8", border: "#c0ccd8", meta: "#555555" };
-    let y = MARGIN;
+    function dateRow(d) { if (!d) return ""; var p = d.split("-"); return p.length===3 ? p[2]+"/"+p[1]+"/"+p[0] : d; }
 
-    function addPage() { doc.addPage(); y = MARGIN; }
-
-    function headerBox(text, opts) {
-      opts = opts || {};
-      const h = opts.h || 20;
-      doc.rect(MARGIN, y, CONTENT_W, h).fill(opts.fill || COLORS.navy);
-      doc.fill(opts.textColor || "#ffffff").fontSize(opts.fontSize || 10).font("Helvetica-Bold").text(text, MARGIN + 8, y + 5, { width: CONTENT_W - 16 });
-      y += h + (opts.after || 4);
+    function maintRows(list) {
+      if (!list || !list.length) return "<tr><td colspan='4' style='color:#888;text-align:center;padding:12px'>Sin registros de mantención.</td></tr>";
+      return list.map(function(m) {
+        return "<tr><td>"+esc(dateRow(m.date))+"</td><td><strong>"+esc(m.equipment)+"</strong><br><small style='color:#555'>TAG: "+esc(m.tag)+"</small></td><td>"+esc(m.workOrder||m.defaultOt||"")+"</td><td>"+(m.completed?"Ok":"Pendiente")+"</td></tr>";
+      }).join("");
     }
 
-    function bodyText(text, opts) {
-      opts = opts || {};
-      doc.fill(opts.color || COLORS.text).fontSize(opts.size || 9).font(opts.font || "Helvetica").text(text, MARGIN + (opts.indent || 0), y, { width: CONTENT_W - (opts.indent || 0), align: opts.align || "left", lineGap: opts.gap || 2 });
-      if (opts.noMove) return;
-      y = doc.y + (opts.after || 4);
-      maybePage();
+    function actRows(list) {
+      if (!list || !list.length) return "<tr><td colspan='4' style='color:#888;text-align:center;padding:12px'>No se registran actividades.</td></tr>";
+      return list.map(function(a) {
+        return "<tr><td>"+esc(dateRow(a.date))+"</td><td><strong>"+esc(a.equipment||"")+"</strong>"+(a.tag?"<br><small>"+esc(a.tag)+"</small>":"")+"</td><td>"+esc(a.description)+"</td><td>"+esc(a.workOrderSgscm||a.workOrder||"")+"</td></tr>";
+      }).join("");
     }
 
-    function boldLabel(label, value, opts) {
-      opts = opts || {};
-      doc.fontSize(opts.size || 9).font("Helvetica-Bold").fillColor(opts.labelColor || COLORS.navy).text(label, MARGIN + (opts.indent || 0), y, { continued: true, width: CONTENT_W });
-      doc.font("Helvetica").fillColor(opts.valueColor || COLORS.text).text(" " + (value || ""), { width: CONTENT_W });
-      y = doc.y + (opts.after || 3);
-      maybePage();
+    function eqRows(list) {
+      if (!list || !list.length) return "<tr><td colspan='4' style='color:#888;text-align:center;padding:12px'>Sin registros de calibración.</td></tr>";
+      return list.map(function(e) {
+        var els = []; try { els = JSON.parse(e.elements||"[]"); } catch {}
+        var detail = e.is_psi ? "Offset: "+esc(e.offset||"") : "Elementos: "+els.join(", ");
+        return "<tr><td>"+esc(e.date)+"<br><small>"+esc(e.time||"")+"</small></td><td><strong>"+esc(e.tag||e.tagKey||"")+"</strong></td><td>"+esc(e.flow||"")+"</td><td>"+detail+"</td></tr>";
+      }).join("");
     }
 
-    function maybePage() { if (y > doc.page.height - 80) addPage(); }
-
-    function drawLine(color) { doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).strokeColor(color || COLORS.border).lineWidth(0.5).stroke(); y += 10; maybePage(); }
-
-    function maintenanceBlock(maintList) {
-      if (!maintList || !maintList.length) { bodyText("No se registran actividades de mantención durante la semana.", { color: COLORS.meta }); return; }
-      maintList.forEach(function(m) {
-        maybePage();
-        boldLabel("Equipo:", m.equipment + "  |  TAG: " + m.tag, { size: 9.5, labelColor: COLORS.navy });
-        boldLabel("Fecha:", m.date || "Sin fecha", { indent: 12 });
-        boldLabel("OT:", m.workOrder || m.defaultOt || "Sin OT", { indent: 12 });
-        bodyText("Descripción: " + m.description, { indent: 12, color: COLORS.text });
-        if (m.completed) bodyText("  ✅ Trabajo completado", { indent: 12, color: "#15803d", after: 2 });
-        bodyText("", { after: 2 });
-        drawLine(COLORS.border);
+    function thermoRows(planta) {
+      var allDates = db.prepare("SELECT DISTINCT fecha FROM thermography_records WHERE planta = ?").all(planta).map(function(r){return r.fecha;});
+      var td = allDates.filter(function(f){var iso=shortDateToIso(f);return iso&&iso>=wkStart&&iso<=wkEnd;});
+      if (!td.length) return "<tr><td colspan='5' style='color:#888;text-align:center;padding:12px'>Sin registros de termografía para la semana.</td></tr>";
+      var html = "";
+      td.forEach(function(f) {
+        var rows = db.prepare("SELECT * FROM thermography_records WHERE planta = ? AND fecha = ?").all(planta, f);
+        rows.forEach(function(r) {
+          var v=[r.v1,r.v2,r.v3,r.v4].filter(Boolean);
+          html += "<tr><td>"+esc(f)+"</td><td><strong>"+esc(r.tag)+"</strong></td><td>"+esc(r.ubicacion||"")+"</td><td>"+(v.length?v.join(" / "):"Sin acceso")+"</td><td>"+(r.observacion||"")+"</td></tr>";
+        });
       });
+      return html;
     }
 
-    function activityBlock(acts, label) {
-      if (!acts || !acts.length) { bodyText("No se realizan actividades de " + label + " durante la semana.", { color: COLORS.meta, after: 6 }); return; }
-      acts.forEach(function(a) {
-        maybePage();
-        boldLabel("Equipo:", a.equipment || "N/E", { size: 9.5 });
-        boldLabel("TAG:", a.tag || "N/E", { indent: 12 });
-        boldLabel("Fecha:", a.date || "Sin fecha", { indent: 12 });
-        if (a.workOrder) boldLabel("OT:", a.workOrder, { indent: 12 });
-        if (a.workOrderSgscm) boldLabel("OT SGSCM:", a.workOrderSgscm, { indent: 12 });
-        bodyText("Actividad realizada: " + a.description, { indent: 12 });
-        bodyText("", { after: 2 });
-        drawLine(COLORS.border);
-      });
+    function aforoHtml(aforoData) {
+      var keys = aforoData ? Object.keys(aforoData).filter(function(k){return k!=="meta";}) : [];
+      if (!keys.length) return "<tr><td colspan='2' style='color:#888;text-align:center;padding:12px'>Sin aforos registrados.</td></tr>";
+      return keys.map(function(k) {
+        var d = aforoData[k]||{};
+        return "<tr><td><strong>"+esc(k)+"</strong></td><td>"+esc(d.muestra1||"")+" / "+esc(d.muestra2||"")+" / "+esc(d.muestra3||"")+(d.litros?" | Litros: "+esc(d.litros):"")+"</td></tr>";
+      }).join("");
     }
-
-    function equationBlock(equations, plantLabel) {
-      if (!equations || !equations.length) { bodyText("No se registran calibraciones de flujos para " + plantLabel + ".", { color: COLORS.meta, after: 6 }); return; }
-      equations.forEach(function(eq) {
-        maybePage();
-        boldLabel("Flujo:", eq.flow || "N/E", { size: 9.5 });
-        boldLabel("TAG:", eq.tag || eq.tagKey || "N/E", { indent: 12 });
-        boldLabel("Fecha:", eq.date + " " + (eq.time || ""), { indent: 12 });
-        var els = [];
-        try { els = JSON.parse(eq.elements || "[]"); } catch {}
-        var detail = eq.is_psi ? "Offset: " + (eq.offset || "N/E") : "Elementos: " + els.join(", ");
-        bodyText(detail, { indent: 12 });
-        bodyText("", { after: 2 });
-        drawLine(COLORS.border);
-      });
-    }
-
-    function aforoBlock(plantAforoData) {
-      var keys = plantAforoData ? Object.keys(plantAforoData).filter(function(k) { return k !== "meta"; }) : [];
-      if (!keys.length) { bodyText("No se registran aforos.", { color: COLORS.meta, after: 6 }); return; }
-      keys.forEach(function(key) {
-        var d = plantAforoData[key] || {};
-        maybePage();
-        boldLabel("Punto:", key, { size: 9.5 });
-        if (d.muestra1 !== undefined) boldLabel("Muestras:", [d.muestra1, d.muestra2, d.muestra3].filter(Boolean).join(", "), { indent: 12 });
-        if (d.litros) boldLabel("Litros:", String(d.litros), { indent: 12 });
-        bodyText("", { after: 2 });
-        drawLine(COLORS.border);
-      });
-    }
-
-     function thermoSection(planta) {
-       var allDates = db.prepare("SELECT DISTINCT fecha FROM thermography_records WHERE planta = ?").all(planta).map(function(r) { return r.fecha; });
-       var thermoDates = allDates.filter(function(f) { var iso = shortDateToIso(f); return iso && iso >= wkStart && iso <= wkEnd; });
-       bodyText("Termografías correspondientes a la semana " + week + " (" + formatIsoDate(wkStart) + " al " + formatIsoDate(wkEnd) + ")", { color: COLORS.meta, size: 8, after: 6 });
-       if (!thermoDates.length) { bodyText("No se registran termografías para la semana.", { color: COLORS.meta, after: 6 }); return; }
-       thermoDates.forEach(function(fecha) {
-         maybePage();
-         var rows = db.prepare("SELECT * FROM thermography_records WHERE planta = ? AND fecha = ?").all(planta, fecha);
-         headerBox("TERMOGRAFÍA " + fecha, { fill: COLORS.navy, h: 18, fontSize: 8, after: 4 });
-         rows.forEach(function(row) {
-           var temps = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).join(" / ");
-           var avg = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).reduce(function(s, v) { return s + Number(v); }, 0);
-           var count = [row.v1, row.v2, row.v3, row.v4].filter(Boolean).length;
-           bodyText(row.tag + " — " + (row.ubicacion || "") + " | " + (temps || "Sin acceso") + (avg && count ? " | Prom: " + (avg / count).toFixed(1) + "°C" : ""), { indent: 8, size: 8.5, after: 2 });
-         });
-         bodyText("", { after: 4 });
-       });
-     }
-
-    /* ===== PORTADA ===== */
-    doc.fontSize(22).font("Helvetica-Bold").fillColor(COLORS.navy).text("INFORME SEMANAL", MARGIN, y, { align: "center", width: CONTENT_W });
-    y = doc.y + 2;
-    doc.fontSize(16).font("Helvetica-Bold").fillColor(COLORS.orange).text("TRABAJOS MANTENCIÓN METSO", MARGIN, y, { align: "center", width: CONTENT_W });
-    y = doc.y + 8;
-    doc.fontSize(13).font("Helvetica-Bold").fillColor(COLORS.navy).text("SEMANA " + week + "  |  AÑO " + year, MARGIN, y, { align: "center", width: CONTENT_W });
-    y = doc.y + 20;
-    drawLine(COLORS.orange);
-    doc.fontSize(9).font("Helvetica").fillColor(COLORS.meta).text("CONTRATO N°: CW2276359", MARGIN, y, { align: "center", width: CONTENT_W });
-    y = doc.y + 4;
-    doc.text("(M-PRO-MANT-" + week.replace("W-", "") + ")", MARGIN, y, { align: "center", width: CONTENT_W });
-    y += 20;
-    doc.rect(MARGIN, y, CONTENT_W, 1).fill(COLORS.navy);
-    y += 16;
-
-    var userMeta = reportData.meta || {};
-    var author = userMeta.responsible || userMeta.createdBy || "Administrador";
-    var authorRows = [
-      ["ELABORADO POR:", author],
-      ["CARGO:", "Supervisor"],
-      ["APROBADO POR:", "Uriel Elizondo Marambio"],
-      ["CARGO:", "Líder de Servicio"],
-      ["PARA:", "Hernán Ponce Reyes"],
-      ["CARGO:", "Administrador de contrato SGSCM"],
-      ["EMPRESA:", "Sierra Gorda SCM"],
-      ["SUPERINTENDENCIA:", "Metalurgia"],
-    ];
-    doc.fontSize(9).font("Helvetica");
-    authorRows.forEach(function(row) {
-      doc.fillColor(COLORS.navy).font("Helvetica-Bold").text(row[0], MARGIN + 60, y, { continued: true, width: 120 });
-      doc.fillColor(COLORS.text).font("Helvetica").text(row[1], { width: CONTENT_W - 180 });
-      y = doc.y + 3;
-    });
-    y += 16;
-    drawLine(COLORS.navy);
-
-    /* ===== PLANTA SELECTIVA ===== */
-    addPage();
-    headerBox("1.  TRABAJOS PLANTA SELECTIVA", { h: 22, fontSize: 11 });
 
     var selData = reportData.plants.selectiva || emptyPlant();
-
-    headerBox("1.1  MANTENCIÓN DE EQUIPOS", { h: 18, fontSize: 9 });
-    maintenanceBlock(selData.maintenance);
-
-    headerBox("1.2  ACTIVIDADES EMERGENTES", { h: 18, fontSize: 9 });
-    activityBlock(selData.emergencies, "emergentes");
-
-    headerBox("1.3  ACTIVIDADES DE MEJORA", { h: 18, fontSize: 9 });
-    activityBlock(selData.improvements, "mejora");
-
-    var equationsSelectiva = db.prepare("SELECT * FROM equation_offset_records WHERE week = ? AND plant = ? ORDER BY date DESC, time DESC").all(week, "selectiva");
-    headerBox("1.4  CALIBRACIÓN DE FLUJOS", { h: 18, fontSize: 9 });
-    equationBlock(equationsSelectiva, "Selectiva");
-
-    headerBox("1.5  TERMOGRAFÍA BOMBAS DE IMPULSIÓN", { h: 18, fontSize: 9 });
-    thermoSection("selectiva");
-
-    /* ===== PLANTA COLECTIVA ===== */
-    addPage();
-    headerBox("2.  TRABAJOS PLANTA COLECTIVA", { h: 22, fontSize: 11 });
-
     var colData = reportData.plants.colectiva || emptyPlant();
-
-    headerBox("2.1  MANTENCIÓN DE EQUIPOS", { h: 18, fontSize: 9 });
-    maintenanceBlock(colData.maintenance);
-
-    headerBox("2.2  ACTIVIDADES EMERGENTES", { h: 18, fontSize: 9 });
-    activityBlock(colData.emergencies, "emergentes");
-
-    headerBox("2.3  ACTIVIDADES DE MEJORA", { h: 18, fontSize: 9 });
-    activityBlock(colData.improvements, "mejora");
-
-    var equationsColectiva = db.prepare("SELECT * FROM equation_offset_records WHERE week = ? AND plant = ? ORDER BY date DESC, time DESC").all(week, "colectiva");
-    headerBox("2.4  CALIBRACIÓN DE FLUJOS", { h: 18, fontSize: 9 });
-    equationBlock(equationsColectiva, "Colectiva");
-
-    headerBox("2.5  AFORO DE MUESTRAS COMPOSITO", { h: 18, fontSize: 9 });
+    var eqSel = db.prepare("SELECT * FROM equation_offset_records WHERE week = ? AND plant = ? ORDER BY date DESC, time DESC").all(week, "selectiva");
+    var eqCol = db.prepare("SELECT * FROM equation_offset_records WHERE week = ? AND plant = ? ORDER BY date DESC, time DESC").all(week, "colectiva");
     var aforoRow = db.prepare("SELECT data FROM aforo_records WHERE week = ?").get(week);
     var aforoData = safeObjectJson(aforoRow?.data);
-    aforoBlock(aforoData);
+    var userMeta = reportData.meta || {};
+    var author = userMeta.responsible || userMeta.createdBy || "Administrador";
 
-    headerBox("2.6  TERMOGRAFÍA BOMBAS DE IMPULSIÓN", { h: 18, fontSize: 9 });
-    thermoSection("colectiva");
+    var html = "<!DOCTYPE html><html><head><meta charset='utf-8'><style>" +
+      "@page { margin: 30px 40px; }" +
+      "body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10pt; color: #1a1a1a; line-height: 1.4; }" +
+      "table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 9pt; }" +
+      "th { background: #0d344f; color: #fff; padding: 7px 8px; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; }" +
+      "td { padding: 6px 8px; border-bottom: 1px solid #d0d8e0; vertical-align: top; }" +
+      "tr:nth-child(even) td { background: #f6f9fc; }" +
+      ".header-main { text-align:center; border-bottom:3px solid #ff6a13; padding-bottom:16px; margin-bottom:18px; }" +
+      ".header-main h1 { color:#0d344f; font-size:20pt; margin:0 0 2px; letter-spacing:-0.02em; }" +
+      ".header-main h2 { color:#ff6a13; font-size:14pt; margin:0 0 4px; }" +
+      ".header-main h3 { color:#0d344f; font-size:11pt; margin:0; }" +
+      ".author-table { margin:14px 0; width:auto; }" +
+      ".author-table td { border:none; padding:2px 10px 2px 0; font-size:9pt; background:transparent; }" +
+      ".author-table td:first-child { color:#0d344f; font-weight:bold; white-space:nowrap; }" +
+      ".section-title { background:#0d344f; color:#fff; padding:8px 12px; font-size:10pt; font-weight:bold; margin:18px 0 6px; }" +
+      ".sub-title { background:#ff6a13; color:#fff; padding:6px 10px; font-size:9pt; font-weight:bold; margin:12px 0 4px; }" +
+      ".no-data { color:#888; text-align:center; padding:12px; font-style:italic; }" +
+      ".page-break { page-break-before: always; }" +
+      ".footer { text-align:center; margin-top:30px; padding-top:14px; border-top:1px solid #d0d8e0; font-size:8pt; color:#888; }" +
+      ".label { color:#0d344f; font-weight:bold; display:inline; }" +
+      ".value { display:inline; margin-left:4px; }" +
+      "</style></head><body>";
 
-    /* ===== FOOTER ===== */
-    addPage();
-    bodyText("— FIN DEL INFORME —", { align: "center", size: 10, color: COLORS.navy, after: 10 });
-    var generatedDate = new Date().toLocaleDateString("es-CL", { year: "numeric", month: "long", day: "numeric" });
-    bodyText("Generado el " + generatedDate + " por Sistema de Informes Metso", { align: "center", size: 8, color: COLORS.meta });
+    /* PORTADA */
+    html += "<div class='header-main'><h1>INFORME SEMANAL</h1><h2>TRABAJOS MANTENCIÓN METSO</h2><h3>SEMANA " + esc(week) + "  |  AÑO " + year + "</h3>" +
+      "<p style='color:#666;font-size:9pt;margin-top:14px'>CONTRATO N°: CW2276359</p>" +
+      "<p style='color:#666;font-size:8pt'>(M-PRO-MANT-" + esc(week.replace("W-","")) + ")</p></div>";
 
-    doc.end();
+    html += "<table class='author-table'><tr><td>ELABORADO POR:</td><td>" + esc(author) + "</td></tr>" +
+      "<tr><td>CARGO:</td><td>Supervisor</td></tr>" +
+      "<tr><td>APROBADO POR:</td><td>Uriel Elizondo Marambio</td></tr>" +
+      "<tr><td>CARGO:</td><td>Líder de Servicio</td></tr>" +
+      "<tr><td>PARA:</td><td>Hernán Ponce Reyes</td></tr>" +
+      "<tr><td>CARGO:</td><td>Administrador de contrato SGSCM</td></tr>" +
+      "<tr><td>EMPRESA:</td><td>Sierra Gorda SCM</td></tr>" +
+      "<tr><td>SUPERINTENDENCIA:</td><td>Metalurgia</td></tr></table><hr style='border-color:#0d344f;margin:16px 0'>";
+
+    /* SELECTIVA */
+    html += "<div class='page-break'></div><div class='section-title'>1.  TRABAJOS PLANTA SELECTIVA</div>";
+
+    html += "<div class='sub-title'>1.1  MANTENCIÓN DE EQUIPOS</div>";
+    html += "<table><thead><tr><th>Fecha</th><th>Equipo / TAG</th><th>OT</th><th>Estado</th></tr></thead><tbody>" + maintRows(selData.maintenance) + "</tbody></table>";
+
+    html += "<div class='sub-title'>1.2  ACTIVIDADES EMERGENTES</div>";
+    html += "<table><thead><tr><th>Fecha</th><th>Equipo</th><th>Descripción</th><th>OT SGSCM</th></tr></thead><tbody>" + actRows(selData.emergencies) + "</tbody></table>";
+
+    html += "<div class='sub-title'>1.3  ACTIVIDADES DE MEJORA</div>";
+    html += "<table><thead><tr><th>Fecha</th><th>Equipo</th><th>Descripción</th><th>OT</th></tr></thead><tbody>" + actRows(selData.improvements) + "</tbody></table>";
+
+    html += "<div class='sub-title'>1.4  CALIBRACIÓN DE FLUJOS</div>";
+    html += "<table><thead><tr><th>Fecha / Hora</th><th>TAG</th><th>Flujo</th><th>Elementos / Offset</th></tr></thead><tbody>" + eqRows(eqSel) + "</tbody></table>";
+
+    html += "<div class='sub-title'>1.5  TERMOGRAFÍA BOMBAS DE IMPULSIÓN</div>";
+    html += "<p style='font-size:8pt;color:#666;margin:2px 0 6px'>Termografías correspondientes a la semana " + esc(week) + " (" + esc(formatIsoDate(wkStart)) + " al " + esc(formatIsoDate(wkEnd)) + ")</p>";
+    html += "<table><thead><tr><th>Fecha</th><th>Bomba</th><th>Ubicación</th><th>Temperaturas (°C)</th><th>Observación</th></tr></thead><tbody>" + thermoRows("selectiva") + "</tbody></table>";
+
+    /* COLECTIVA */
+    html += "<div class='page-break'></div><div class='section-title'>2.  TRABAJOS PLANTA COLECTIVA</div>";
+
+    html += "<div class='sub-title'>2.1  MANTENCIÓN DE EQUIPOS</div>";
+    html += "<table><thead><tr><th>Fecha</th><th>Equipo / TAG</th><th>OT</th><th>Estado</th></tr></thead><tbody>" + maintRows(colData.maintenance) + "</tbody></table>";
+
+    html += "<div class='sub-title'>2.2  ACTIVIDADES EMERGENTES</div>";
+    html += "<table><thead><tr><th>Fecha</th><th>Equipo</th><th>Descripción</th><th>OT SGSCM</th></tr></thead><tbody>" + actRows(colData.emergencies) + "</tbody></table>";
+
+    html += "<div class='sub-title'>2.3  ACTIVIDADES DE MEJORA</div>";
+    html += "<table><thead><tr><th>Fecha</th><th>Equipo</th><th>Descripción</th><th>OT</th></tr></thead><tbody>" + actRows(colData.improvements) + "</tbody></table>";
+
+    html += "<div class='sub-title'>2.4  CALIBRACIÓN DE FLUJOS</div>";
+    html += "<table><thead><tr><th>Fecha / Hora</th><th>TAG</th><th>Flujo</th><th>Elementos / Offset</th></tr></thead><tbody>" + eqRows(eqCol) + "</tbody></table>";
+
+    html += "<div class='sub-title'>2.5  AFORO DE MUESTRAS COMPOSITO</div>";
+    html += "<table><thead><tr><th>Punto de Muestreo</th><th>Detalle</th></tr></thead><tbody>" + aforoHtml(aforoData) + "</tbody></table>";
+
+    html += "<div class='sub-title'>2.6  TERMOGRAFÍA BOMBAS DE IMPULSIÓN</div>";
+    html += "<p style='font-size:8pt;color:#666;margin:2px 0 6px'>Termografías correspondientes a la semana " + esc(week) + " (" + esc(formatIsoDate(wkStart)) + " al " + esc(formatIsoDate(wkEnd)) + ")</p>";
+    html += "<table><thead><tr><th>Fecha</th><th>Bomba</th><th>Ubicación</th><th>Temperaturas (°C)</th><th>Observación</th></tr></thead><tbody>" + thermoRows("colectiva") + "</tbody></table>";
+
+    /* FOOTER */
+    html += "<div class='page-break'></div><div style='text-align:center;padding-top:40px'><p style='color:#0d344f;font-weight:bold;font-size:11pt'>— FIN DEL INFORME —</p>" +
+      "<p style='color:#888;font-size:8pt;margin-top:14px'>Generado el " + new Date().toLocaleDateString("es-CL",{year:"numeric",month:"long",day:"numeric"}) + " por Sistema de Informes Metso</p></div>";
+
+    html += "</body></html>";
+
+    const puppeteer = require("puppeteer");
+    require("puppeteer").launch({ headless: true, args: ["--no-sandbox","--disable-setuid-sandbox"] }).then(function(browser) {
+      return browser.newPage().then(function(page) {
+        return page.setContent(html, { waitUntil: "networkidle0" }).then(function() {
+          return page.pdf({ format: "A4", margin: { top: "30px", bottom: "30px", left: "35px", right: "35px" }, printBackground: true, displayHeaderFooter: false }).then(function(pdf) {
+            return browser.close().then(function() {
+              var filename = "Informe_Completo_" + week + "_" + Date.now() + ".pdf";
+              require("fs").writeFileSync(path.join(__dirname, filename), pdf);
+              res.json({ success: true, downloadUrl: "/" + filename });
+            });
+          });
+        });
+      });
+    }).catch(function(e) {
+      res.status(500).json({ error: e.message });
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
