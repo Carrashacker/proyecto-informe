@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { spawnSync } = require("child_process");
 const Database = require("better-sqlite3");
 
@@ -10,10 +11,12 @@ const port = process.env.PORT || 3000;
 function findWritableDir() {
   const candidates = [
     process.env.DATA_DIR,
-    process.env.HOME,
+    process.env.XDG_DATA_HOME,
+    os.tmpdir(),
+    "/tmp",
     "/data",
     "/var/data",
-    "/tmp",
+    process.env.HOME,
     __dirname,
   ].filter(Boolean);
   for (const dir of candidates) {
@@ -21,15 +24,34 @@ function findWritableDir() {
       const test = path.join(dir, ".write_test");
       fs.writeFileSync(test, "");
       fs.unlinkSync(test);
+      console.log(`[DB] Writable dir found: ${dir}`);
       return dir;
-    } catch { continue; }
+    } catch {
+      console.log(`[DB] Not writable: ${dir}`);
+    }
   }
+  console.log(`[DB] Falling back to __dirname: ${__dirname}`);
   return __dirname;
 }
 
 const dataDir = findWritableDir();
 const dbPath = path.join(dataDir, "informes.db");
-const db = new Database(dbPath);
+
+fs.writeFileSync(path.join(dataDir, ".db_ok"), "ok");
+
+let db;
+try {
+  db = new Database(dbPath);
+  console.log(`[DB] Opened successfully at ${dbPath}`);
+} catch (e) {
+  console.error(`[DB] Failed to open ${dbPath}: ${e.message}`);
+  console.log(`[DB] Trying ${os.tmpdir()} as fallback...`);
+  const fallback = os.tmpdir();
+  const fallbackDb = path.join(fallback, "informes.db");
+  db = new Database(fallbackDb);
+  console.log(`[DB] Opened fallback at ${fallbackDb}`);
+}
+
 const PLAN_OPERATIONAL_YEAR = 2026;
 
 const thermographyPumps = {
@@ -1002,10 +1024,28 @@ app.get("/api/thermography/download/:file", (req, res) => {
   res.download(path.join(__dirname, "bomba16", file));
 });
 
+app.put("/api/db-upload", express.raw({ type: "*/*", limit: "200mb" }), (req, res) => {
+  try {
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || "");
+    if (buf.length < 1024) return res.status(400).json({ error: "Archivo muy pequeno o vacio" });
+    const backup = dbPath + ".bak";
+    try { fs.copyFileSync(dbPath, backup); } catch {}
+    fs.writeFileSync(dbPath, buf);
+    try { db.close(); } catch {}
+    db = new Database(dbPath, { fileMustExist: true });
+    db.pragma("journal_mode = WAL");
+    res.json({ success: true, bytes: buf.length });
+  } catch (e) {
+    try { if (fs.existsSync(dbPath + ".bak")) fs.copyFileSync(dbPath + ".bak", dbPath); } catch {}
+    try { db = new Database(dbPath, { fileMustExist: true }); db.pragma("journal_mode = WAL"); } catch {}
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get("*", renderIndexWithUsers);
 
 app.listen(port, () => {
-  console.log(`Sistema de informes disponible en http://localhost:${port} (DB: ${dbPath}, DIR: ${dataDir})`);
+  console.log(`Sistema de informes disponible en http://localhost:${port} (DB: ${db?.name || "unknown"})`);
 });
 
 function seedTemplates() {
